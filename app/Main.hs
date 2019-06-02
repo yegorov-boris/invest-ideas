@@ -1,6 +1,10 @@
 module Main where
 
-import Lib
+import Flags (parseCliFlags, ideasUrl, token, ideasPollingInterval)
 
 main :: IO ()
-main = someFunc
+main = do
+  cliFlags <- parseCliFlags
+  putStrLn $ ideasUrl cliFlags
+  putStrLn $ token cliFlags
+  putStrLn $ ideasPollingInterval cliFlags
