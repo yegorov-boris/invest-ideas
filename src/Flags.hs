@@ -61,7 +61,6 @@ parsePollingInterval s = liftA2 (*) (safeLast s >>= parseLetter) (safeInit s >>=
     safeInit = maybe (Left "unsupported unit of time measurement in ideas-polling-interval") Right . L.init
     safeRead = \v -> readEither v :: Either String Int
 
--- TODO: guard
 validate :: Int -> Either String Int
 validate n
   | n < 1     = Left "ideas-polling-interval should be at least 1m"
