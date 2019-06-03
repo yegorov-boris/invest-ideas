@@ -8,8 +8,8 @@ module Flags
 import Options.Applicative
 import Data.Semigroup ((<>))
 import Text.Read (readEither)
-import Control.Monad ((>=>))
 import qualified Data.List.Safe as L
+import Control.Applicative (liftA2)
 
 data CliFlagsRaw = CliFlagsRaw
   { ideasUrlRaw             :: String
@@ -51,13 +51,12 @@ parseCliFlags = do
       , ideasPollingInterval = interval
       }
 
--- TODO: lift
 parsePollingInterval :: String -> Either String Int
-parsePollingInterval s = (safeLast >=> parseLetter) s <*> (safeInit >=> safeRead) s >>= validate
+parsePollingInterval s = liftA2 (*) (safeLast s >>= parseLetter) (safeInit s >>= safeRead) >>= validate
   where
     safeLast = maybe (Left "failed to parse ideas-polling-interval") Right . L.last
-    parseLetter 'm' = Right (*1)
-    parseLetter 'h' = Right (*60)
+    parseLetter 'm' = Right 1
+    parseLetter 'h' = Right 60
     parseLetter _   = Left "wrong format of ideas-polling-interval"
     safeInit = maybe (Left "unsupported unit of time measurement in ideas-polling-interval") Right . L.init
     safeRead = \v -> readEither v :: Either String Int
