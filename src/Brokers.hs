@@ -4,10 +4,10 @@ module Brokers
 
 import Control.Concurrent (MVar, putMVar, threadDelay)
 
-brokersFetcher :: MVar () -> IO ()
-brokersFetcher m = do
+brokersFetcher :: Int -> MVar () -> IO ()
+brokersFetcher d m = do
   putStrLn "started fetching brokers"
-  update 2000000
+  update d
   putMVar m ()
 
 update :: Int -> IO ()

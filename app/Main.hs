@@ -7,7 +7,9 @@ import Brokers (brokersFetcher)
 main :: IO ()
 main = do
   cliFlags <- parseCliFlags
-  m <- newEmptyMVar
-  forkIO $ brokersFetcher m
-  takeMVar m
-  putStrLn "the end"
+  case cliFlags of
+    Left errMsg -> putStrLn $ "failed to parse CLI flags: " ++ errMsg
+    Right cf -> do
+      m <- newEmptyMVar
+      forkIO $ brokersFetcher (ideasPollingInterval cf) m
+      takeMVar m

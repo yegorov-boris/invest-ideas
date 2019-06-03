@@ -8,13 +8,18 @@ module Flags
 import Options.Applicative
 import Data.Semigroup ((<>))
 
-data CliFlags = CliFlags
-  { ideasUrl        :: String
-  , token           :: String
-  , ideasPollingInterval :: String }
+data CliFlagsRaw = CliFlagsRaw
+  { ideasUrlRaw             :: String
+  , tokenRaw                :: String
+  , ideasPollingIntervalRaw :: String }
 
-cliFlags :: Parser CliFlags
-cliFlags = CliFlags
+data CliFlags = CliFlags
+  { ideasUrl             :: String
+  , token                :: String
+  , ideasPollingInterval :: Int }
+
+cliFlagsRaw :: Parser CliFlagsRaw
+cliFlagsRaw = CliFlagsRaw
       <$> strOption
           ( long "ideas-url"
          <> metavar "IDEAS_URL"
@@ -28,10 +33,19 @@ cliFlags = CliFlags
          <> metavar "POLLING_INTERVAL"
          <> value "15m" )
 
-parseCliFlags :: IO CliFlags
-parseCliFlags = execParser opts
+parseCliFlags :: IO (Either String CliFlags)
+parseCliFlags = do
+  raw <- execParser opts
+  return $ fromCliFlagsRaw raw
   where
-    opts = info (cliFlags <**> helper)
+    opts = info (cliFlagsRaw <**> helper)
       ( fullDesc
      <> progDesc "invest-ideas fetcher"
      <> header "hello" )
+
+fromCliFlagsRaw :: CliFlagsRaw -> Either String CliFlags
+fromCliFlagsRaw raw = Right CliFlags
+  { ideasUrl = ideasUrlRaw raw
+  , token = tokenRaw raw
+  , ideasPollingInterval = 2000000
+  }
