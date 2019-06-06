@@ -2,7 +2,7 @@ module Main where
 
 import Control.Concurrent (newEmptyMVar, forkIO, takeMVar)
 import Flags (parseCliFlags, ideasUrl, token, ideasPollingInterval)
-import Brokers (brokersFetcher)
+import Pipe.Brokers (brokersFetcher)
 
 main :: IO ()
 main = do
