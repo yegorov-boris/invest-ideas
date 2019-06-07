@@ -2,39 +2,23 @@ module Brokers.Client
     (fetch
     ) where
 
-import Network.Http.Client (GET, get, concatHandler')--, buildRequest1, http, setHeader)
+import Network.Http.Client (get, getStatusCode)
 import Data.ByteString.UTF8 (fromString)
 import qualified Data.ByteString.Char8 as B
 import Flags (CliFlags, ideasURL, token)
 
+-- TODO: cancel on timeout
+-- TODO: retry
 fetch :: CliFlags -> IO ()
 fetch cf = do
---  let q = buildRequest1 $ do
---    http GET url
---    setHeader (fromString "") (fromString "")
   putStrLn "started fetching brokers"
-  x <- get url concatHandler'
-  B.putStrLn x
+  get url (\response inputStream -> if
+    (getStatusCode response) == 200
+    then putStrLn "OK"
+    else putStrLn "failed to fetch brokers")
   putStrLn "finished fetching brokers"
   where
     url = fromString $ (ideasURL cf) ++ "/brokers?api_key=" ++ (token cf)
-
---  c <- openConnection "www.example.com" 80
---
---  let q = buildRequest1 $ do
---              http GET "/"
---              setAccept "text/html"
---
---  sendRequest c q emptyBody
---
---  receiveResponse c (\p i -> do
---      putStr $ show p
---
---      x <- Streams.read i
---      S.putStr $ fromMaybe "" x)
---
---  closeConnection c
-
 
 --import Data.Time.LocalTime (ZonedTime)
 --
