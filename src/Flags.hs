@@ -1,6 +1,7 @@
 module Flags
-    ( parseCliFlags
-    , ideasUrl
+    ( CliFlags
+    , parseCliFlags
+    , ideasURL
     , token
     , ideasPollingInterval
     ) where
@@ -12,12 +13,12 @@ import qualified Data.List.Safe as L
 import Control.Applicative (liftA2)
 
 data CliFlagsRaw = CliFlagsRaw
-  { ideasUrlRaw             :: String
+  { ideasURLRaw             :: String
   , tokenRaw                :: String
   , ideasPollingIntervalRaw :: String }
 
 data CliFlags = CliFlags
-  { ideasUrl             :: String
+  { ideasURL             :: String
   , token                :: String
   , ideasPollingInterval :: Int }
 
@@ -46,7 +47,7 @@ parseCliFlags = do
       <> progDesc "invest-ideas fetcher"
       <> header "hello" )
     fromRaw raw interval = CliFlags
-      { ideasUrl = ideasUrlRaw raw
+      { ideasURL = ideasURLRaw raw
       , token = tokenRaw raw
       , ideasPollingInterval = interval
       }

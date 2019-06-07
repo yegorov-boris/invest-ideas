@@ -1,15 +1,13 @@
 module Main where
 
 import Control.Concurrent (newEmptyMVar, forkIO, takeMVar)
-import Flags (parseCliFlags, ideasUrl, token, ideasPollingInterval)
-import Pipe.Brokers (brokersFetcher)
+import Flags (parseCliFlags)
+import Brokers.Pipe (runFetcher)
 
 main :: IO ()
-main = do
-  cliFlags <- parseCliFlags
-  case cliFlags of
-    Left errMsg -> putStrLn $ "failed to parse CLI flags: " ++ errMsg
-    Right cf -> do
-      m <- newEmptyMVar
-      forkIO $ brokersFetcher (ideasPollingInterval cf) m
-      takeMVar m
+main = parseCliFlags >>= either
+  (putStrLn . ("failed to parse CLI flags: " ++))
+  (\cf -> do
+    m <- newEmptyMVar
+    forkIO $ runFetcher cf m
+    takeMVar m)
