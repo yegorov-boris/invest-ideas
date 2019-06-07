@@ -3,14 +3,18 @@ module Brokers.Client
     ) where
 
 import Network.Http.Client (get, concatHandler')
+import Data.ByteString.UTF8 (fromString)
+import qualified Data.ByteString.Char8 as B
 import Flags (CliFlags, ideasURL, token)
 
 fetch :: CliFlags -> IO ()
 fetch cf = do
   putStrLn "started fetching brokers"
-  x <- get ((ideasURL cf) ++ "/brokers?api_key=" ++ (token cf)) concatHandler'
-  putStr x
+  x <- get url concatHandler'
+  B.putStrLn x
   putStrLn "finished fetching brokers"
+  where
+    url = fromString $ (ideasURL cf) ++ "/brokers?api_key=" ++ (token cf)
 
 --  c <- openConnection "www.example.com" 80
 --

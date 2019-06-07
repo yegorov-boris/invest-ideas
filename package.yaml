@@ -25,6 +25,8 @@ dependencies:
 - listsafe
 - time
 - http-streams
+- utf8-string
+- bytestring
 
 library:
   source-dirs: src

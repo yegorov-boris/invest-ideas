@@ -11,7 +11,7 @@ runFetcher cf m = do
   update cf
   putMVar m ()
 
-update :: Int -> String -> IO ()
+update :: CliFlags -> IO ()
 update cf = do
   fetch cf
   threadDelay $ ideasPollingInterval cf
