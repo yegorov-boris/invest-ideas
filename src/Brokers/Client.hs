@@ -2,13 +2,16 @@ module Brokers.Client
     (fetch
     ) where
 
-import Network.Http.Client (get, concatHandler')
+import Network.Http.Client (GET, get, concatHandler')--, buildRequest1, http, setHeader)
 import Data.ByteString.UTF8 (fromString)
 import qualified Data.ByteString.Char8 as B
 import Flags (CliFlags, ideasURL, token)
 
 fetch :: CliFlags -> IO ()
 fetch cf = do
+--  let q = buildRequest1 $ do
+--    http GET url
+--    setHeader (fromString "") (fromString "")
   putStrLn "started fetching brokers"
   x <- get url concatHandler'
   B.putStrLn x
