@@ -7,10 +7,9 @@ import Data.ByteString.UTF8 (fromString)
 import qualified Data.ByteString.Char8 as B
 import Control.Exception (SomeException, handle)
 import Control.Conditional (if')
-import Flags (CliFlags, ideasURL, token)
+import Flags (CliFlags, ideasURL, token, httpTimeout)
 import Utils (printWrap)
 
--- TODO: cancel on timeout
 -- TODO: retry
 fetch :: CliFlags -> IO ()
 fetch cf = do

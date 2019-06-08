@@ -1,11 +1,12 @@
 module Main where
 
 import Control.Concurrent (newEmptyMVar, forkIO, takeMVar)
+import Control.Error (runExceptT)
 import Flags (parseCliFlags)
 import Brokers.Pipe (runFetcher)
 
 main :: IO ()
-main = parseCliFlags >>= either
+main = runExceptT parseCliFlags >>= either
   (putStrLn . ("failed to parse CLI flags: " ++))
   (\cf -> do
     m <- newEmptyMVar

@@ -28,6 +28,7 @@ dependencies:
 - utf8-string
 - bytestring
 - cond
+- errors
 
 library:
   source-dirs: src
