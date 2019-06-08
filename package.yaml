@@ -27,6 +27,7 @@ dependencies:
 - http-streams
 - utf8-string
 - bytestring
+- cond
 
 library:
   source-dirs: src

@@ -5,20 +5,26 @@ module Brokers.Client
 import Network.Http.Client (get, getStatusCode)
 import Data.ByteString.UTF8 (fromString)
 import qualified Data.ByteString.Char8 as B
+import Control.Exception (SomeException, handle)
+import Control.Conditional (if')
 import Flags (CliFlags, ideasURL, token)
+import Utils (printWrap)
 
 -- TODO: cancel on timeout
 -- TODO: retry
 fetch :: CliFlags -> IO ()
 fetch cf = do
   putStrLn "started fetching brokers"
-  get url (\response inputStream -> if
-    (getStatusCode response) == 200
-    then putStrLn "OK"
-    else putStrLn "failed to fetch brokers")
-  putStrLn "finished fetching brokers"
+  handle onErr (get url processStatusCode)
   where
     url = fromString $ (ideasURL cf) ++ "/brokers?api_key=" ++ (token cf)
+    processStatusCode response inputStream = let statusCode = getStatusCode response in if'
+      (statusCode == 200)
+      (putStrLn "finished fetching brokers")
+      (printWrap "failed to fetch brokers: status code " statusCode)
+
+onErr :: SomeException -> IO ()
+onErr = printWrap "failed to fetch brokers: "
 
 --import Data.Time.LocalTime (ZonedTime)
 --
