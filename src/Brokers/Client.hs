@@ -11,7 +11,6 @@ import Control.Concurrent (MVar, newEmptyMVar, readMVar, tryPutMVar, forkIO, thr
 import Flags (CliFlags, ideasURL, token, httpTimeout, httpMaxAttempts)
 import Utils (printWrap)
 
--- TODO: read flags
 fetch :: CliFlags -> IO ()
 fetch cf = attemptFetch cf 1
 
@@ -30,7 +29,7 @@ attemptFetch cf currentAttempt = do
 
 doFetch :: CliFlags -> MVar Bool -> Int -> IO ()
 doFetch cf m currentAttempt = do
-  putStrLn $ "started fetching brokers, attempt " ++ show currentAttempt
+  printWrap "started fetching brokers, attempt " currentAttempt
   handle (onErr currentAttempt) (get url processStatusCode)
   where
     url = fromString $ (ideasURL cf) ++ "/brokers?api_key=" ++ (token cf)
