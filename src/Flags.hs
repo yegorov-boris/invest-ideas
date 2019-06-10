@@ -5,6 +5,7 @@ module Flags
     , token
     , ideasPollingInterval
     , httpTimeout
+    , httpMaxAttempts
     ) where
 
 import Options.Applicative
@@ -19,13 +20,15 @@ data CliFlagsRaw = CliFlagsRaw
   { ideasURLRaw             :: String
   , tokenRaw                :: String
   , ideasPollingIntervalRaw :: String
-  , httpTimeoutRaw          :: Int }
+  , httpTimeoutRaw          :: Int
+  , httpMaxAttemptsRaw       :: Int }
 
 data CliFlags = CliFlags
   { ideasURL             :: String
   , token                :: String
   , ideasPollingInterval :: Int
-  , httpTimeout          :: Int }
+  , httpTimeout          :: Int
+  , httpMaxAttempts      :: Int }
 
 cliFlagsRaw :: Parser CliFlagsRaw
 cliFlagsRaw = CliFlagsRaw
@@ -45,17 +48,23 @@ cliFlagsRaw = CliFlagsRaw
           ( long "http-timeout"
          <> metavar "HTTP_TIMEOUT"
          <> value 30 )
+      <*> option auto
+          ( long "http-max-attempts"
+         <> metavar "HTTP_MAX_ATTEMPTS"
+         <> value 3 )
 
 parseCliFlags :: ExceptT String IO CliFlags
 parseCliFlags = do
   raw <- liftIO $ execParser opts
   interval <- hoistEither $ parsePollingInterval $ ideasPollingIntervalRaw raw
   timeout <- hoistEither $ validateHttpTimeout $ httpTimeoutRaw raw
+  maxAttempts <- hoistEither $ validateHttpMaxAttempts $ httpMaxAttemptsRaw raw
   return CliFlags
     { ideasURL             = ideasURLRaw raw
     , token                = tokenRaw raw
     , ideasPollingInterval = interval * 60 * second
     , httpTimeout          = timeout * second
+    , httpMaxAttempts      = maxAttempts
     }
   where
     opts = info (cliFlagsRaw <**> helper)
@@ -86,4 +95,10 @@ validateHttpTimeout :: Int -> Either String Int
 validateHttpTimeout n
   | n < 10 = Left "http-timeout should be at least 10 seconds"
   | n > 60 = Left "http-timeout should be no more than 1 minute"
+  | otherwise = Right n
+
+validateHttpMaxAttempts :: Int -> Either String Int
+validateHttpMaxAttempts n
+  | n < 1 = Left "http-max-attempts should be at least 1"
+  | n > 3 = Left "http-max-attempts should be no more than 3"
   | otherwise = Right n
