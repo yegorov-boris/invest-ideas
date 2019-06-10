@@ -85,5 +85,5 @@ validatePollingInterval n
 validateHttpTimeout :: Int -> Either String Int
 validateHttpTimeout n
   | n < 10 = Left "http-timeout should be at least 10 seconds"
-  | n < 10 = Left "http-timeout should be no more than 1 minute"
+  | n > 60 = Left "http-timeout should be no more than 1 minute"
   | otherwise = Right n
