@@ -30,6 +30,7 @@ dependencies:
 - cond
 - errors
 - aeson
+- io-streams
 
 library:
   source-dirs: src

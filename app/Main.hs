@@ -4,10 +4,11 @@ import Control.Concurrent (newEmptyMVar, forkIO, takeMVar)
 import Control.Error (runExceptT)
 import Flags (parseCliFlags)
 import Brokers.Pipe (runFetcher)
+import Utils (printWrap)
 
 main :: IO ()
 main = runExceptT parseCliFlags >>= either
-  (putStrLn . ("failed to parse CLI flags: " ++))
+  (printWrap "failed to parse CLI flags: ")
   (\cf -> do
     m <- newEmptyMVar
     forkIO $ runFetcher cf m

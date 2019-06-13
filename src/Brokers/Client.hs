@@ -7,12 +7,15 @@ module Brokers.Client
 import GHC.Generics (Generic)
 import Data.Aeson (FromJSON)
 --import Data.Time.LocalTime (ZonedTime)
-import Network.Http.Client (get, getStatusCode, jsonHandler)
-import Data.ByteString.UTF8 (fromString)
+import Network.Http.Client (Response, get, getStatusCode, jsonHandler)
+import Data.ByteString.UTF8 (ByteString, fromString)
 import qualified Data.ByteString.Char8 as B
 import Control.Exception (SomeException, handle)
 import Control.Conditional (if')
 import Control.Concurrent (MVar, newEmptyMVar, readMVar, tryPutMVar, forkIO, threadDelay)
+import Control.Error (ExceptT, hoistEither, runExceptT)
+import Control.Monad.IO.Class (liftIO)
+import System.IO.Streams (InputStream)
 import Flags (CliFlags, ideasURL, token, httpTimeout, httpMaxAttempts)
 import Utils (printWrap)
 
@@ -23,6 +26,7 @@ data Body = Body {
 
 instance FromJSON Body
 
+-- TODO: move to a separate module
 data Broker = Broker {
   id :: Int
 --                     , source :: String
@@ -57,38 +61,35 @@ fetch cf = attemptFetch cf 1
 attemptFetch :: CliFlags -> Int -> IO ()
 attemptFetch cf currentAttempt = do
   m <- newEmptyMVar
-  forkIO $ doFetch cf m currentAttempt
+  forkIO $ handle (onErr currentAttempt) (get url $ handleResponse m)
   forkIO (threadDelay (httpTimeout cf) >> tryPutMVar m False >> return ())
-  success <- readMVar m
+  ok <- readMVar m
   if'
-    (success || (currentAttempt == maxAttempts))
+    (ok || (currentAttempt == maxAttempts))
     (return ())
     (attemptFetch cf (succ currentAttempt))
   where
-    maxAttempts = httpMaxAttempts cf
-
--- TODO: chain the nested conditions
-doFetch :: CliFlags -> MVar Bool -> Int -> IO ()
-doFetch cf m currentAttempt = do
-  printWrap "started fetching brokers, attempt " currentAttempt
-  handle (onErr currentAttempt) (get url processStatusCode)
-  where
     url = fromString $ (ideasURL cf) ++ "/brokers?api_key=" ++ (token cf)
-    processStatusCode response inputStream = do
-      allowed <- tryPutMVar m True
-      if'
-        allowed
-        (let statusCode = getStatusCode response in if'
-          (statusCode == 200)
-          (do
-            printWrap "finished fetching brokers, attempt " currentAttempt
-            printWrap "started parsing brokers response body, attempt " currentAttempt
-            body <- jsonHandler response inputStream :: IO Body -- TODO: on err
-            printWrap "finished parsing brokers response body, attempt " currentAttempt
-            putStrLn $ show body
-          )
-          (printWrap ("failed to fetch brokers, attempt " ++ show currentAttempt ++ ": status code ") statusCode))
-        (printWrap "failed to fetch brokers: timed out, attempt " currentAttempt)
+    maxAttempts = httpMaxAttempts cf
+    handleResponse m response inputStream =
+      (runExceptT $ responseHandler m currentAttempt response inputStream)
+      >>= either putStrLn (putStrLn . show)
+
+responseHandler :: MVar Bool -> Int -> Response -> InputStream ByteString -> ExceptT String IO [Broker]
+responseHandler m currentAttempt response inputStream = do
+  liftIO $ printWrap "started fetching brokers, attempt " currentAttempt
+  allowed <- liftIO $ tryPutMVar m True
+  statusCode <- hoistEither $ if'
+    allowed
+    (Right $ getStatusCode response)
+    (Left $ "failed to fetch brokers: timed out, attempt " ++ show currentAttempt)
+  hoistEither $ if'
+      (statusCode == 200)
+      (Right ())
+      (Left $ "failed to fetch brokers, attempt " ++ show currentAttempt ++ ": status code " ++ show statusCode)
+  body <- liftIO (jsonHandler response inputStream :: IO Body)
+  liftIO $ printWrap "finished fetching brokers, attempt " currentAttempt
+  return $ results body
 
 onErr :: Int -> SomeException -> IO ()
 onErr currentAttempt = printWrap ("failed to fetch brokers, attempt " ++ show currentAttempt ++ ": ")
