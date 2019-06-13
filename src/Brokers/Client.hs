@@ -18,6 +18,7 @@ import Control.Monad.IO.Class (liftIO)
 import System.IO.Streams (InputStream)
 import Flags (CliFlags, ideasURL, token, httpTimeout, httpMaxAttempts)
 import Utils (printWrap)
+import Brokers.Broker (Broker)
 
 data Body = Body {
     success :: Bool
@@ -25,35 +26,6 @@ data Body = Body {
   } deriving (Generic, Show)
 
 instance FromJSON Body
-
--- TODO: move to a separate module
-data Broker = Broker {
-  id :: Int
---                     , source :: String
---                     , name :: String
---                     , rating :: String
---                     , ideasCount :: Int
---                     , ideasPositive :: Int
---                     , description :: String
---                     , accuracy :: Double
---                     , profitableIdeasAvgYield :: Double
---                     , totalProfitableIdeas :: Int
---                     , unprofitableIdeasAvgYield :: Double
---                     , totalUnprofitableIdeas :: Int
---                     , bestIdeaExternalID :: String
---                     , newIdeasPerMonth :: Int
---                     , ideaAvgDaysLong :: Int
---                     , specializationResumeAsset :: String
---                     , specializationResumeCurrency :: String
---                     , specializationResumeDescription :: String
---                     , createdAt :: ZonedTime
---                     , updatedAt :: ZonedTime
---                     , isDeleted :: Bool
---                     , isVisibleMM :: Bool
---                     , isVisibleWM :: Bool
-  } deriving (Generic, Show)
-
-instance FromJSON Broker
 
 fetch :: CliFlags -> IO ()
 fetch cf = attemptFetch cf 1
