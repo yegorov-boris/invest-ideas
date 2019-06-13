@@ -60,8 +60,12 @@ responseHandler m currentAttempt response inputStream = do
       (Right ())
       (Left $ "failed to fetch brokers, attempt " ++ show currentAttempt ++ ": status code " ++ show statusCode)
   body <- liftIO (jsonHandler response inputStream :: IO Body)
+  brokers <- hoistEither $ if'
+    (success body == True)
+    (Right $ results body)
+    (Left $ "body.success is false, attempt " ++ show currentAttempt)
   liftIO $ printWrap "finished fetching brokers, attempt " currentAttempt
-  return $ results body
+  return brokers
 
 onErr :: Int -> SomeException -> IO ()
 onErr currentAttempt = printWrap ("failed to fetch brokers, attempt " ++ show currentAttempt ++ ": ")
