@@ -29,6 +29,7 @@ dependencies:
 - bytestring
 - cond
 - errors
+- aeson
 
 library:
   source-dirs: src
