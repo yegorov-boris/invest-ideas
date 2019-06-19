@@ -32,6 +32,7 @@ dependencies:
 - aeson
 - io-streams
 - text
+- postgresql-simple
 
 library:
   source-dirs: src
