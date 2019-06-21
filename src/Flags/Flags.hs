@@ -1,11 +1,6 @@
-module Flags
-    ( CliFlags
+module Flags.Flags
+    ( CliFlags(..)
     , parseCliFlags
-    , ideasURL
-    , token
-    , ideasPollingInterval
-    , httpTimeout
-    , httpMaxAttempts
     ) where
 
 import Options.Applicative
@@ -15,23 +10,24 @@ import qualified Data.List.Safe as L
 import Control.Applicative (liftA2)
 import Control.Error (ExceptT, hoistEither)
 import Control.Monad.IO.Class (liftIO)
-
-data CliFlagsRaw = CliFlagsRaw
-  { ideasURLRaw             :: String
-  , tokenRaw                :: String
-  , ideasPollingIntervalRaw :: String
-  , httpTimeoutRaw          :: Int
-  , httpMaxAttemptsRaw       :: Int }
+import Data.Word (Word16)
+import Data.IP (IP)
+import qualified Flags.Raw as R
 
 data CliFlags = CliFlags
   { ideasURL             :: String
   , token                :: String
   , ideasPollingInterval :: Int
   , httpTimeout          :: Int
-  , httpMaxAttempts      :: Int }
+  , httpMaxAttempts      :: Int
+  , dbHost               :: String
+  , dbPort               :: Word16
+  , dbName               :: String
+  , dbUser               :: String
+  , dbPassword           :: String }
 
-cliFlagsRaw :: Parser CliFlagsRaw
-cliFlagsRaw = CliFlagsRaw
+cliFlagsRaw :: Parser R.CliFlags
+cliFlagsRaw = R.CliFlags
       <$> strOption
           ( long "ideas-url"
          <> metavar "IDEAS_URL"
@@ -52,19 +48,44 @@ cliFlagsRaw = CliFlagsRaw
           ( long "http-max-attempts"
          <> metavar "HTTP_MAX_ATTEMPTS"
          <> value 3 )
+      <*> strOption
+          ( long "db-host"
+         <> metavar "DB_HOST"
+         <> value (read "127.0.0.1" :: IP) )
+      <*> option auto
+          ( long "db-port"
+         <> metavar "DB_PORT"
+         <> value 5432 )
+      <*> strOption
+          ( long "db-name"
+         <> metavar "DB_NAME"
+         <> value "feed" )
+      <*> strOption
+          ( long "db-user"
+         <> metavar "DB_USER"
+         <> value "user" )
+      <*> strOption
+          ( long "db-password"
+         <> metavar "DB_PASSWORD"
+         <> value "passwd" )
 
 parseCliFlags :: ExceptT String IO CliFlags
 parseCliFlags = do
   raw <- liftIO $ execParser opts
-  interval <- hoistEither $ parsePollingInterval $ ideasPollingIntervalRaw raw
-  timeout <- hoistEither $ validateHttpTimeout $ httpTimeoutRaw raw
-  maxAttempts <- hoistEither $ validateHttpMaxAttempts $ httpMaxAttemptsRaw raw
-  return CliFlags
-    { ideasURL             = ideasURLRaw raw
-    , token                = tokenRaw raw
+  interval <- hoistEither $ parsePollingInterval $ R.ideasPollingInterval raw
+  timeout <- hoistEither $ validateHttpTimeout $ R.httpTimeout raw
+  maxAttempts <- hoistEither $ validateHttpMaxAttempts $ R.httpMaxAttempts raw
+  return CliFlags {
+      ideasURL             = R.ideasURL raw
+    , token                = R.token raw
     , ideasPollingInterval = interval * 60 * second
     , httpTimeout          = timeout * second
     , httpMaxAttempts      = maxAttempts
+    , dbHost               = show $ R.dbHost raw
+    , dbPort               = R.dbPort raw
+    , dbName               = R.dbName raw
+    , dbUser               = R.dbUser raw
+    , dbPassword           = R.dbPassword raw
     }
   where
     opts = info (cliFlagsRaw <**> helper)

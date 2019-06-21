@@ -2,7 +2,7 @@ module Main where
 
 import Control.Concurrent (newEmptyMVar, forkIO, takeMVar)
 import Control.Error (runExceptT)
-import Flags (parseCliFlags)
+import Flags.Flags (parseCliFlags)
 import Brokers.Pipe (runFetcher)
 import Utils (printWrap)
 
