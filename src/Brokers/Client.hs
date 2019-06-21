@@ -43,19 +43,18 @@ doFetch cf currentAttempt =
 
 attemptFetch :: CliFlags -> Int -> ExceptT String IO [BrokerResponse]
 attemptFetch cf currentAttempt = do
-  (response, inputStream) <- ExceptT $ race
+  result <- ExceptT $ race
     (
       threadDelay (httpTimeout cf)
       >> return ("failed to fetch brokers: timed out, attempt " ++ show currentAttempt)
     )
-    (get url $ responseHandler)
+    (get url $ responseHandler currentAttempt)
+  (statusCode, body) <- hoistEither result
   liftIO $ printWrap "started fetching brokers, attempt " currentAttempt
-  statusCode <- return $ getStatusCode response
   hoistEither $ if'
     (statusCode == 200)
     (Right ())
     (Left $ "failed to fetch brokers, attempt " ++ show currentAttempt ++ ": status code " ++ show statusCode)
-  body <- liftIO (jsonHandler response inputStream :: IO Body)
   brokers <- hoistEither $ if'
     (success body == True)
     (Right $ results body)
@@ -65,9 +64,13 @@ attemptFetch cf currentAttempt = do
   where
     url = fromString $ (ideasURL cf) ++ "/brokers?api_key=" ++ (token cf)
 
-responseHandler :: Response -> InputStream ByteString -> IO (Response, InputStream ByteString)
-responseHandler response inputStream = return (response, inputStream)
+responseHandler :: Int -> Response -> InputStream ByteString -> IO (Either String (Int, Body))
+responseHandler currentAttempt response inputStream = handle
+  (onErr currentAttempt)
+  (fmap (Right . (,) statusCode) (jsonHandler response inputStream :: IO Body))
+  where
+    statusCode = getStatusCode response
 
-onErr :: Int -> SomeException -> IO (Either String [BrokerResponse])
+onErr :: Int -> SomeException -> IO (Either String a)
 onErr currentAttempt e =
   return $ Left $ "failed to fetch brokers, attempt " ++ show currentAttempt ++ ": " ++ show e
