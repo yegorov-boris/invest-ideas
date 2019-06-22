@@ -50,7 +50,7 @@ attemptFetch cf currentAttempt = do
   liftIO $ printWrap "finished fetching brokers, attempt " currentAttempt
   return brokers
   where
-    url = fromString $ (ideasURL cf) ++ "/brokers?api_key=" ++ (token cf) -- TODO: OverloadedStrings
+    url = fromString $ (ideasURL cf) ++ "/brokers?api_key=" ++ (token cf)
 
 responseHandler :: Int -> Response -> InputStream ByteString -> IO (Either String (Int, Body))
 responseHandler currentAttempt response inputStream = handle

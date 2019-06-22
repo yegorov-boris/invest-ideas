@@ -21,58 +21,48 @@ data Body = Body {
 
 instance FromJSON Body
 
-data BrokerResponse = BrokerResponse { -- TODO: camel case
-    id                           :: Int
-  , name                         :: T.Text
-  , rating                       :: Int
-  , ideas_count                  :: Int
-  , ideas_positive               :: Int
-  , description                  :: T.Text
-  , accuracy                     :: Double
-  , profitable_ideas_avg_yield   :: Double
-  , total_profitable_ideas       :: Int
-  , unprofitable_ideas_avg_yield :: Double
-  , total_unprofitable_ideas     :: Int
-  , best_idea_id                 :: Maybe Int
-  , new_ideas_per_month          :: Int
-  , idea_avg_days_long           :: Int
-  , specialization_resume        :: SpecializationResume
+data BrokerResponse = BrokerResponse {
+    externalID                :: Int
+  , name                      :: T.Text
+  , rating                    :: Int
+  , ideasCount                :: Int
+  , ideasPositive             :: Int
+  , description               :: T.Text
+  , accuracy                  :: Double
+  , profitableIdeasAvgYield   :: Double
+  , totalProfitableIdeas      :: Int
+  , unprofitableIdeasAvgYield :: Double
+  , totalUnprofitableIdeas    :: Int
+  , bestIdeaExternalID        :: Maybe Int
+  , newIdeasPerMonth          :: Int
+  , ideaAvgDaysLong           :: Int
+  , specializationResume      :: SpecializationResume
   } deriving Show
 
 instance FromJSON BrokerResponse where
   parseJSON = withObject "BrokerResponse" $ \o -> do
-    id                           <- o .: "id"
-    name                         <- o .: "name"
-    rating                       <- o .: "rating"
-    description                  <- o .: "description"
-    profitable_ideas_avg_yield   <- o .: "profitable_ideas_avg_yield"
-    total_profitable_ideas       <- o .: "total_profitable_ideas"
-    unprofitable_ideas_avg_yield <- o .: "unprofitable_ideas_avg_yield"
-    total_unprofitable_ideas     <- o .: "total_unprofitable_ideas"
-    best_idea_id                 <- o .: "best_idea_id"
-    new_ideas_per_month          <- o .: "new_ideas_per_month"
-    idea_avg_days_long           <- o .: "idea_avg_days_long"
-    specialization_resume        <- o .: "specialization_resume"
+    externalID                <- o .: "id"
+    name                      <- o .: "name"
+    rating                    <- o .: "rating"
+    description               <- o .: "description"
+    profitableIdeasAvgYield   <- o .: "profitable_ideas_avg_yield"
+    totalProfitableIdeas      <- o .: "total_profitable_ideas"
+    unprofitableIdeasAvgYield <- o .: "unprofitable_ideas_avg_yield"
+    totalUnprofitableIdeas    <- o .: "total_unprofitable_ideas"
+    bestIdeaExternalID        <- o .: "best_idea_id"
+    newIdeasPerMonth          <- o .: "new_ideas_per_month"
+    ideaAvgDaysLong           <- o .: "idea_avg_days_long"
+    specializationResume      <- o .: "specialization_resume"
 
-    ideas_count <- do
-      s <- o .: "ideas_count"
-      case readMaybe s of
-        Nothing -> fail "\"ideas_count\" is not an Int"
-        Just x  -> return x
+    ideasCount    <- o .: "ideas_count" >>=
+      maybe (fail "\"ideas_count\" is not an Int") return . readMaybe
 
-    ideas_positive <- do
-      s <- o .: "ideas_positive"
-      case readMaybe s of
-        Nothing -> fail "\"ideas_positive\" is not an Int"
-        Just x  -> return x
+    ideasPositive <- o .: "ideas_positive" >>=
+      maybe (fail "\"ideas_positive\" is not an Int") return . readMaybe
 
     accuracy <- asum [
         o .: "accuracy",
-        do
-          s <- o .: "accuracy" -- TODO: shorten
-          case readMaybe s of
-            Nothing -> fail "\"accuracy\" is not a Double"
-            Just x  -> return x
+        o .: "accuracy" >>= maybe (fail "\"accuracy\" is not a Double") return . readMaybe
       ]
 
     return BrokerResponse{..}
