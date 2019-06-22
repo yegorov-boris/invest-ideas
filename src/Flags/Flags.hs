@@ -59,7 +59,7 @@ cliFlagsRaw = R.CliFlags
       <*> strOption
           ( long "db-name"
          <> metavar "DB_NAME"
-         <> value "feed" )
+         <> value "feed_test" )
       <*> strOption
           ( long "db-user"
          <> metavar "DB_USER"

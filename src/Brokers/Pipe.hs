@@ -3,7 +3,7 @@ module Brokers.Pipe
     ) where
 
 import Control.Concurrent (MVar, putMVar, threadDelay)
-import Flags.Flags (CliFlags, ideasPollingInterval)
+import Flags.Flags (CliFlags(..))
 import Brokers.Client (fetch)
 import Brokers.Mapper (fromResponse)
 import Brokers.Storage (batchUpsert)

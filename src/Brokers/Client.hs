@@ -12,7 +12,7 @@ import Control.Monad ((>=>))
 import Control.Monad.IO.Class (liftIO)
 import System.IO.Streams (InputStream)
 import Control.Concurrent.Async (race)
-import Flags.Flags (CliFlags, ideasURL, token, httpTimeout, httpMaxAttempts)
+import Flags.Flags (CliFlags(..))
 import Utils (printWrap)
 import Brokers.Response (Body(..), BrokerResponse)
 
