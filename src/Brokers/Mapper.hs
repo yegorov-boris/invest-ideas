@@ -1,4 +1,4 @@
-module Brokers.Mapper
+module Brokers.Mapper -- TODO: get rid of
     ( fromResponse
     ) where
 
@@ -9,18 +9,15 @@ import qualified Brokers.Response as R
 
 fromResponse :: R.BrokerResponse -> Either String B.Broker
 fromResponse b = do
-  ideasCount <- intFromText $ R.ideas_count b
-  ideasPositive <- intFromText $ R.ideas_positive b
-  accuracy <- doubleFromText $ R.accuracy b
   return $ B.Broker {
       B.externalID                = R.id b
     , B.source                    = "invest-idei.ru"
     , B.name                      = R.name b
     , B.rating                    = R.rating b
-    , B.ideasCount                = ideasCount
-    , B.ideasPositive             = ideasPositive
+    , B.ideasCount                = R.ideas_count b
+    , B.ideasPositive             = R.ideas_positive b
     , B.description               = R.description b
-    , B.accuracy                  = accuracy
+    , B.accuracy                  = R.accuracy b
     , B.profitableIdeasAvgYield   = R.profitable_ideas_avg_yield b
     , B.totalProfitableIdeas      = R.total_profitable_ideas b
     , B.unprofitableIdeasAvgYield = R.unprofitable_ideas_avg_yield b
@@ -33,9 +30,3 @@ fromResponse b = do
     , B.isVisibleMM               = True
     , B.isVisibleWM               = True
     }
-
-intFromText :: T.Text -> Either String Int
-intFromText v = readEither (show v) :: Either String Int
-
-doubleFromText :: T.Text -> Either String Double
-doubleFromText v = readEither (show v) :: Either String Double

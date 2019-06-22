@@ -1,14 +1,9 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module Brokers.Client
     (fetch
     ) where
 
-import GHC.Generics (Generic)
-import Data.Aeson (FromJSON)
 import Network.Http.Client (Response, get, getStatusCode, jsonHandler)
 import Data.ByteString.UTF8 (ByteString, fromString)
-import qualified Data.ByteString.Char8 as B
 import Control.Exception (SomeException, handle)
 import Control.Conditional (if')
 import Control.Concurrent (threadDelay)
@@ -19,14 +14,7 @@ import System.IO.Streams (InputStream)
 import Control.Concurrent.Async (race)
 import Flags.Flags (CliFlags, ideasURL, token, httpTimeout, httpMaxAttempts)
 import Utils (printWrap)
-import Brokers.Response (BrokerResponse)
-
-data Body = Body {
-    success :: Bool
-  , results :: [BrokerResponse]
-  } deriving (Generic, Show)
-
-instance FromJSON Body
+import Brokers.Response (Body(..), BrokerResponse)
 
 fetch :: CliFlags -> IO (Maybe [BrokerResponse])
 fetch cf = doFetch cf 1
@@ -62,7 +50,7 @@ attemptFetch cf currentAttempt = do
   liftIO $ printWrap "finished fetching brokers, attempt " currentAttempt
   return brokers
   where
-    url = fromString $ (ideasURL cf) ++ "/brokers?api_key=" ++ (token cf)
+    url = fromString $ (ideasURL cf) ++ "/brokers?api_key=" ++ (token cf) -- TODO: OverloadedStrings
 
 responseHandler :: Int -> Response -> InputStream ByteString -> IO (Either String (Int, Body))
 responseHandler currentAttempt response inputStream = handle

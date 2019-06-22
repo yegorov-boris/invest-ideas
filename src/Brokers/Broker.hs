@@ -13,7 +13,7 @@ data Broker = Broker {
   , ideasCount                :: Int
   , ideasPositive             :: Int
   , description               :: T.Text
-  , accuracy                  :: Double -- TODO: Double|T.Text
+  , accuracy                  :: Double
   , profitableIdeasAvgYield   :: Double
   , totalProfitableIdeas      :: Int
   , unprofitableIdeasAvgYield :: Double
