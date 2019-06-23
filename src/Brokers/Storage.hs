@@ -37,7 +37,6 @@ doBatchUpsert cf brokers = do
   close conn
   putStrLn "finished storing brokers"
   where
---    TODO: UPSERT
     query = [sql|
         INSERT INTO brokers (
           external_id,
@@ -65,6 +64,26 @@ doBatchUpsert cf brokers = do
           is_visible_wm
         )
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ON CONFLICT (source, external_id) DO UPDATE SET
+          name=EXCLUDED.name,
+          rating=EXCLUDED.rating,
+          ideas_count=EXCLUDED.ideas_count,
+          ideas_positive=EXCLUDED.ideas_positive,
+          description=EXCLUDED.description,
+        	accuracy=EXCLUDED.accuracy,
+        	profitable_ideas_avg_yield=EXCLUDED.profitable_ideas_avg_yield,
+        	total_profitable_ideas=EXCLUDED.total_profitable_ideas,
+        	unprofitable_ideas_avg_yield=EXCLUDED.unprofitable_ideas_avg_yield,
+        	total_unprofitable_ideas=EXCLUDED.total_unprofitable_ideas,
+        	best_idea_external_id=EXCLUDED.best_idea_external_id,
+        	new_ideas_per_month=EXCLUDED.new_ideas_per_month,
+        	idea_avg_days_long=EXCLUDED.idea_avg_days_long,
+        	specialization_resume_asset=EXCLUDED.specialization_resume_asset,
+        	specialization_resume_currency=EXCLUDED.specialization_resume_currency,
+        	specialization_resume_description=EXCLUDED.specialization_resume_description,
+        	updated_at=now(),
+        	is_visible_mm=EXCLUDED.is_visible_mm,
+        	is_visible_wm=EXCLUDED.is_visible_wm
       |]
 
 onErr :: SomeException -> IO ()
