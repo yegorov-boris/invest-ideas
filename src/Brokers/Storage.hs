@@ -1,25 +1,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 
 module Brokers.Storage
     ( batchUpsert
     ) where
 
+import GHC.Generics (Generic)
+import Data.Maybe (fromMaybe)
 import Control.Exception (SomeException, handle)
-import Database.PostgreSQL.Simple (ConnectInfo(..), connect, close, executeMany)
+import Database.PostgreSQL.Simple (ConnectInfo(..), ToRow, connect, close, executeMany)
 import Database.PostgreSQL.Simple.SqlQQ (sql)
-import Brokers.Broker (Broker(..))
+import qualified Data.Text as T
+import qualified Brokers.Broker as B
 import Brokers.Response (SpecializationResume(..))
 import Flags.Flags (CliFlags(..))
 import Utils (printWrap)
 
-batchUpsert :: CliFlags -> [Broker] -> IO ()
+batchUpsert :: CliFlags -> [B.Broker] -> IO ()
 batchUpsert cf brokers = do
   putStrLn "started storing brokers"
   handle onErr $ doBatchUpsert cf brokers
 
-doBatchUpsert :: CliFlags -> [Broker] -> IO ()
+doBatchUpsert :: CliFlags -> [B.Broker] -> IO ()
 doBatchUpsert cf brokers = do
   conn <- connect $ ConnectInfo {
         connectHost     = dbHost cf
@@ -28,7 +33,7 @@ doBatchUpsert cf brokers = do
       , connectPassword = dbPassword cf
       , connectDatabase = dbName cf
       }
-  executeMany conn query $ map toValues brokers
+  executeMany conn query $ map toModel brokers
   close conn
   putStrLn "finished storing brokers"
   where
@@ -59,31 +64,61 @@ doBatchUpsert cf brokers = do
           is_visible_mm,
           is_visible_wm
         )
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       |]
-    toValues broker = (
-        externalID broker
-      , source broker
-      , name broker
-      , rating broker
-      , ideasCount broker
-      , ideasPositive broker
-      , description broker
-      , accuracy broker
-      , profitableIdeasAvgYield broker
-      , totalProfitableIdeas broker
-      , unprofitableIdeasAvgYield broker
-      , totalUnprofitableIdeas broker
-      , bestIdeaExternalID broker
-      , newIdeasPerMonth broker
-      , ideaAvgDaysLong broker
-      , asset $ specializationResume broker
-      , currency $ specializationResume broker
-      , txt $ specializationResume broker
-      , isDeleted broker
-      , isVisibleMM broker
-      , isVisibleWM broker
-      )
 
 onErr :: SomeException -> IO ()
 onErr = printWrap "failed to store brokers: "
+
+data BrokerModel = BrokerModel {
+    externalID                      :: String
+  , source                          :: String
+  , name                            :: T.Text
+  , rating                          :: Int
+  , ideasCount                      :: Int
+  , ideasPositive                   :: Int
+  , description                     :: T.Text
+  , accuracy                        :: Double
+  , profitableIdeasAvgYield         :: Double
+  , totalProfitableIdeas            :: Int
+  , unprofitableIdeasAvgYield       :: Double
+  , totalUnprofitableIdeas          :: Int
+  , bestIdeaExternalID              :: Maybe String
+  , newIdeasPerMonth                :: Int
+  , ideaAvgDaysLong                 :: Int
+  , specializationResumeAsset       :: T.Text
+  , specializationResumeCurrency    :: T.Text
+  , specializationResumeDescription :: T.Text
+  , createdAt                       :: String
+  , updatedAt                       :: String
+  , isDeleted                       :: Bool
+  , isVisibleMM                     :: Bool
+  , isVisibleWM                     :: Bool
+  } deriving (Generic, ToRow)
+
+toModel :: B.Broker -> BrokerModel
+toModel b = BrokerModel {
+    externalID                      = show $ B.externalID b
+  , source                          = B.source b
+  , name                            = B.name b
+  , rating                          = B.rating b
+  , ideasCount                      = B.ideasCount b
+  , ideasPositive                   = B.ideasPositive b
+  , description                     = B.description b
+  , accuracy                        = B.accuracy b
+  , profitableIdeasAvgYield         = B.profitableIdeasAvgYield b
+  , totalProfitableIdeas            = B.totalProfitableIdeas b
+  , unprofitableIdeasAvgYield       = B.unprofitableIdeasAvgYield b
+  , totalUnprofitableIdeas          = B.totalUnprofitableIdeas b
+  , bestIdeaExternalID              = show <$> B.bestIdeaExternalID b
+  , newIdeasPerMonth                = B.newIdeasPerMonth b
+  , ideaAvgDaysLong                 = B.ideaAvgDaysLong b
+  , specializationResumeAsset       = fromMaybe "" $ asset $ B.specializationResume b
+  , specializationResumeCurrency    = fromMaybe "" $ currency $ B.specializationResume b
+  , specializationResumeDescription = fromMaybe "" $ txt $ B.specializationResume b
+  , createdAt                       = "now()"
+  , updatedAt                       = "now()"
+  , isDeleted                       = B.isDeleted b
+  , isVisibleMM                     = B.isVisibleMM b
+  , isVisibleWM                     = B.isVisibleWM b
+  }
