@@ -54,7 +54,7 @@ instance FromJSON BrokerResponse where
     ideaAvgDaysLong           <- o .: "idea_avg_days_long"
     specializationResume      <- o .: "specialization_resume"
 
-    ideasCount    <- o .: "ideas_count" >>=
+    ideasCount <- o .: "ideas_count" >>=
       maybe (fail "\"ideas_count\" is not an Int") return . readMaybe
 
     ideasPositive <- o .: "ideas_positive" >>=

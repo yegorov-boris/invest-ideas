@@ -4,7 +4,7 @@ module Brokers.Client
 
 import Network.Http.Client (Response, get, getStatusCode, jsonHandler)
 import Data.ByteString.UTF8 (ByteString, fromString)
-import Control.Exception (SomeException, handle)
+import Control.Exception (handle)
 import Control.Conditional (if')
 import Control.Concurrent (threadDelay)
 import Control.Error (ExceptT(..), hoistEither, runExceptT)
@@ -13,7 +13,7 @@ import Control.Monad.IO.Class (liftIO)
 import System.IO.Streams (InputStream)
 import Control.Concurrent.Async (race)
 import Flags.Flags (CliFlags(..))
-import Utils (printWrap)
+import Utils (printWrap, defaultErrorHandler)
 import Brokers.Response (Body(..), BrokerResponse)
 
 fetch :: CliFlags -> IO (Maybe [BrokerResponse])
@@ -21,7 +21,9 @@ fetch cf = doFetch cf 1
 
 doFetch :: CliFlags -> Int -> IO (Maybe [BrokerResponse])
 doFetch cf currentAttempt =
-  handle (onErr currentAttempt) (runExceptT $ attemptFetch cf 1)
+  handle
+    (defaultErrorHandler $ "failed to fetch brokers, attempt " ++ show currentAttempt ++ ": ")
+    (runExceptT $ attemptFetch cf 1)
   >>= either
     (putStrLn >=> (\_ -> if currentAttempt < maxAttempts then tryAgain else return Nothing))
     (return . Just)
@@ -54,11 +56,7 @@ attemptFetch cf currentAttempt = do
 
 responseHandler :: Int -> Response -> InputStream ByteString -> IO (Either String (Int, Body))
 responseHandler currentAttempt response inputStream = handle
-  (onErr currentAttempt)
+  Left "" <$> (defaultErrorHandler $ "failed to process brokers response, attempt " ++ show currentAttempt ++ ": ")
   (fmap (Right . (,) statusCode) (jsonHandler response inputStream :: IO Body))
   where
     statusCode = getStatusCode response
-
-onErr :: Int -> SomeException -> IO (Either String a)
-onErr currentAttempt e =
-  return $ Left $ "failed to fetch brokers, attempt " ++ show currentAttempt ++ ": " ++ show e

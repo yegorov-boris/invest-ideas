@@ -14,25 +14,19 @@ import Control.Exception (SomeException, handle)
 import Database.PostgreSQL.Simple (ConnectInfo(..), ToRow, connect, close, executeMany)
 import Database.PostgreSQL.Simple.SqlQQ (sql)
 import qualified Data.Text as T
-import qualified Brokers.Broker as B
-import Brokers.Response (SpecializationResume(..))
+import qualified Brokers.Response as B
 import Flags.Flags (CliFlags(..))
-import Utils (printWrap)
+import Storage (getConnectionInfo)
+import Utils (printWrap, defaultErrorHandler)
 
-batchUpsert :: CliFlags -> [B.Broker] -> IO ()
+batchUpsert :: CliFlags -> [BrokerResponse] -> IO ()
 batchUpsert cf brokers = do
   putStrLn "started storing brokers"
-  handle onErr $ doBatchUpsert cf brokers
+  handle (defaultErrorHandler "failed to store brokers: ") (doBatchUpsert cf brokers)
 
-doBatchUpsert :: CliFlags -> [B.Broker] -> IO ()
+doBatchUpsert :: CliFlags -> [BrokerResponse] -> IO ()
 doBatchUpsert cf brokers = do
-  conn <- connect $ ConnectInfo {
-        connectHost     = dbHost cf
-      , connectPort     = dbPort cf
-      , connectUser     = dbUser cf
-      , connectPassword = dbPassword cf
-      , connectDatabase = dbName cf
-      }
+  conn <- connect $ getConnectionInfo cf
   executeMany conn query $ map toModel brokers
   close conn
   putStrLn "finished storing brokers"
@@ -86,9 +80,6 @@ doBatchUpsert cf brokers = do
         	is_visible_wm=EXCLUDED.is_visible_wm
       |]
 
-onErr :: SomeException -> IO ()
-onErr = printWrap "failed to store brokers: "
-
 data BrokerModel = BrokerModel {
     externalID                      :: String
   , source                          :: String
@@ -115,10 +106,10 @@ data BrokerModel = BrokerModel {
   , isVisibleWM                     :: Bool
   } deriving (Generic, ToRow)
 
-toModel :: B.Broker -> BrokerModel
+toModel :: BrokerResponse -> BrokerModel
 toModel b = BrokerModel {
     externalID                      = show $ B.externalID b
-  , source                          = B.source b
+  , source                          = "invest-idei.ru"
   , name                            = B.name b
   , rating                          = B.rating b
   , ideasCount                      = B.ideasCount b
@@ -137,7 +128,7 @@ toModel b = BrokerModel {
   , specializationResumeDescription = fromMaybe "" $ txt $ B.specializationResume b
   , createdAt                       = "now()"
   , updatedAt                       = "now()"
-  , isDeleted                       = B.isDeleted b
-  , isVisibleMM                     = B.isVisibleMM b
-  , isVisibleWM                     = B.isVisibleWM b
+  , isDeleted                       = False
+  , isVisibleMM                     = True
+  , isVisibleWM                     = True
   }
