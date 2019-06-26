@@ -74,3 +74,5 @@ data Tag = Tag {
     jurisdiction :: T.Text
   , currency     :: T.Text
   } deriving (Generic, Show)
+
+instance FromJSON Tag

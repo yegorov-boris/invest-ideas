@@ -16,18 +16,16 @@ import Database.PostgreSQL.Simple (ConnectInfo(..), ToRow, connect, close, execu
 import Database.PostgreSQL.Simple.SqlQQ (sql)
 import qualified Data.Text as T
 import qualified Data.HashSet as HashSet
-import qualified Ideas.Idea as I
---import Ideas.Response (SpecializationResume(..))
 import Flags.Flags (CliFlags(..))
 import Storage (getConnectionInfo)
 import Utils (printWrap, defaultErrorHandler)
 
 stocksCache :: CliFlags -> IO (Maybe (HashSet.Set T.Text))
 stocksCache cf = do
-  handle (defaultErrorHandler "failed to find stocks: " >> return Nothing) (doStocksCache cf)
+  handle ((Nothing <$) . defaultErrorHandler "failed to find stocks: ") (doStocksCache cf)
 
 doStocksCache :: CliFlags -> IO (Maybe (HashSet.Set T.Text))
-doStocksCache cf ideas = do
+doStocksCache cf = do
   conn <- connect $ getConnectionInfo cf
 --  executeMany conn query $ map toModel ideas
   close conn

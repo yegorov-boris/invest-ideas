@@ -19,12 +19,12 @@ import Flags.Flags (CliFlags(..))
 import Storage (getConnectionInfo)
 import Utils (printWrap, defaultErrorHandler)
 
-batchUpsert :: CliFlags -> [BrokerResponse] -> IO ()
+batchUpsert :: CliFlags -> [B.BrokerResponse] -> IO ()
 batchUpsert cf brokers = do
   putStrLn "started storing brokers"
   handle (defaultErrorHandler "failed to store brokers: ") (doBatchUpsert cf brokers)
 
-doBatchUpsert :: CliFlags -> [BrokerResponse] -> IO ()
+doBatchUpsert :: CliFlags -> [B.BrokerResponse] -> IO ()
 doBatchUpsert cf brokers = do
   conn <- connect $ getConnectionInfo cf
   executeMany conn query $ map toModel brokers
@@ -106,7 +106,7 @@ data BrokerModel = BrokerModel {
   , isVisibleWM                     :: Bool
   } deriving (Generic, ToRow)
 
-toModel :: BrokerResponse -> BrokerModel
+toModel :: B.BrokerResponse -> BrokerModel
 toModel b = BrokerModel {
     externalID                      = show $ B.externalID b
   , source                          = "invest-idei.ru"
@@ -123,9 +123,9 @@ toModel b = BrokerModel {
   , bestIdeaExternalID              = show <$> B.bestIdeaExternalID b
   , newIdeasPerMonth                = B.newIdeasPerMonth b
   , ideaAvgDaysLong                 = B.ideaAvgDaysLong b
-  , specializationResumeAsset       = fromMaybe "" $ asset $ B.specializationResume b
-  , specializationResumeCurrency    = fromMaybe "" $ currency $ B.specializationResume b
-  , specializationResumeDescription = fromMaybe "" $ txt $ B.specializationResume b
+  , specializationResumeAsset       = fromMaybe "" $ B.asset $ B.specializationResume b
+  , specializationResumeCurrency    = fromMaybe "" $ B.currency $ B.specializationResume b
+  , specializationResumeDescription = fromMaybe "" $ B.txt $ B.specializationResume b
   , createdAt                       = "now()"
   , updatedAt                       = "now()"
   , isDeleted                       = False

@@ -1,6 +1,9 @@
 module Utils
-    (printWrap
+    ( printWrap
+    , defaultErrorHandler
     ) where
+
+import Control.Exception (SomeException)
 
 printWrap :: Show a => String -> a -> IO ()
 printWrap msg = putStrLn . (msg ++) . show

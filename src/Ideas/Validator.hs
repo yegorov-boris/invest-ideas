@@ -4,7 +4,7 @@ module Ideas.Validator
 
 import Data.HashSet (Set)
 import qualified Data.Text as T
-import qualified Ideas.Response (IdeaResponse(..))
+import Ideas.Response (IdeaResponse(..))
 
 -- TODO: implementation
 validate :: Set T.Text -> IdeaResponse -> Either String IdeaResponse

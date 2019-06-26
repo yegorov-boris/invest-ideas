@@ -19,12 +19,13 @@ import Flags.Flags (CliFlags(..))
 import Storage (getConnectionInfo)
 import Utils (printWrap, defaultErrorHandler)
 
-batchUpsert :: CliFlags -> [I.Idea] -> IO ()
+batchUpsert :: CliFlags -> [I.IdeaResponse] -> IO ()
 batchUpsert cf ideas = do
   putStrLn "started storing ideas"
   handle (defaultErrorHandler "failed to store ideas: ") (doBatchUpsert cf ideas)
+  putStrLn $ show ideas
 
-doBatchUpsert :: CliFlags -> [I.Idea] -> IO ()
+doBatchUpsert :: CliFlags -> [I.IdeaResponse] -> IO ()
 doBatchUpsert cf ideas = do
   conn <- connect $ getConnectionInfo cf
 --  executeMany conn query $ map toModel ideas
@@ -106,7 +107,7 @@ doBatchUpsert cf ideas = do
 --  , isVisibleWM                     :: Bool
 --  } deriving (Generic, ToRow)
 
---toModel :: I.Idea -> IdeaModel
+--toModel :: I.IdeaResponse -> IdeaModel
 --toModel i = IdeaModel {
 --    externalID                      = show $ B.externalID b
 --  , source                          = B.source b

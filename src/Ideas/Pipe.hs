@@ -5,7 +5,9 @@ module Ideas.Pipe
 import Control.Conditional (if')
 import Control.Concurrent (MVar, putMVar, threadDelay)
 import Control.Concurrent.Chan (Chan, newChan, readChan)
-import Data.Either (partitionEithers)
+import Data.Either (lefts, rights)
+import Data.HashSet (Set)
+import qualified Data.Text as T
 import Flags.Flags (CliFlags(..))
 import Ideas.Client (fetch)
 import Ideas.Validator (validate)
@@ -21,17 +23,16 @@ runFetcher cf m = do
 update :: CliFlags -> IO ()
 update cf = do
   ideasCh <- newChan
-  maybe
-    return ()
-    (\stocks -> (fetch cf ideasCh >>= processIdeas cf stocks ideasCh))
-    stocksCache cf
+  stocksCache cf >>= maybe
+    (return ())
+    (\stocks -> (fetch cf ideasCh >> processIdeas cf stocks ideasCh))
   putStrLn "finished fetching ideas"
   threadDelay $ ideasPollingInterval cf
   update cf
 
 processIdeas :: CliFlags -> Set T.Text -> Chan (Maybe [IdeaResponse]) -> IO ()
 processIdeas cf stocks ideasCh = readChan ideasCh >>= maybe
-  return ()
+  (return ())
   (\ideas ->
     let
       validatedIdeas = validate stocks `map` ideas
