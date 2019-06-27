@@ -3,7 +3,7 @@ module Ideas.Pipe
     ) where
 
 import Control.Conditional (if')
-import Control.Concurrent (MVar, putMVar, threadDelay)
+import Control.Concurrent (forkIO, MVar, putMVar, threadDelay)
 import Control.Concurrent.Chan (Chan, newChan, readChan)
 import Data.Either (lefts, rights)
 import Data.HashSet (Set)
@@ -25,7 +25,7 @@ update cf = do
   ideasCh <- newChan
   stocksCache cf >>= maybe
     (return ())
-    (\stocks -> (fetch cf ideasCh >> processIdeas cf stocks ideasCh))
+    (\stocks -> ((forkIO $ fetch cf ideasCh) >> processIdeas cf stocks ideasCh))
   putStrLn "finished fetching ideas"
   threadDelay $ ideasPollingInterval cf
   update cf

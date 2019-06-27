@@ -23,7 +23,6 @@ batchUpsert :: CliFlags -> [I.IdeaResponse] -> IO ()
 batchUpsert cf ideas = do
   putStrLn "started storing ideas"
   handle (defaultErrorHandler "failed to store ideas: ") (doBatchUpsert cf ideas)
-  putStrLn $ show ideas
 
 doBatchUpsert :: CliFlags -> [I.IdeaResponse] -> IO ()
 doBatchUpsert cf ideas = do

@@ -5,11 +5,11 @@ module Ideas.Client
 import Network.Http.Client (Response, get, getStatusCode, jsonHandler)
 import Data.ByteString.UTF8 (ByteString)
 import System.IO.Streams (InputStream)
-import Control.Monad (join, mzero)
+import Control.Monad (join, mzero, (>=>))
 import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
 import Control.Monad.IO.Class (liftIO)
 import Control.Conditional (if')
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, MVar, newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.Chan (Chan, writeChan)
 import System.Timeout (timeout)
 import Control.Exception (handle)
@@ -23,19 +23,18 @@ limit = 100
 
 fetch :: CliFlags -> Chan (Maybe [IdeaResponse]) -> IO ()
 fetch cf ideasCh = do
-  forkIO $ worker cf 0 ideasCh
-  forkIO $ worker cf limit ideasCh
+  m <- newEmptyMVar
+  forkIO $ worker cf 0 ideasCh m
+  forkIO $ worker cf limit ideasCh m
+  takeMVar m
+  takeMVar m
   writeChan ideasCh Nothing
 
-worker :: CliFlags -> Int -> Chan (Maybe [IdeaResponse]) -> IO ()
-worker cf offset ideasCh = attemptFetch (httpMaxAttempts cf) (doFetch cf offset) >>=
+worker :: CliFlags -> Int -> Chan (Maybe [IdeaResponse]) -> MVar () -> IO ()
+worker cf offset ideasCh m = attemptFetch (httpMaxAttempts cf) (doFetch cf offset) >>=
   maybe
-    (return ())
-    (\ideas -> if'
-      (null ideas)
-      (return ())
-      ((writeChan ideasCh $ Just ideas) >> worker cf (offset + limit) ideasCh)
-    )
+    (putMVar m ())
+    (writeChan ideasCh . Just >=> (\_ -> worker cf (offset + 2 * limit) ideasCh m))
 
 doFetch :: CliFlags -> Int -> Int -> IO (Maybe [IdeaResponse])
 doFetch cf offset currentAttempt = handle
@@ -61,7 +60,7 @@ fetcher cf offset currentAttempt = do
     in
       (liftIO $ printWrap msg currentAttempt) >> mzero)
   liftIO $ printWrap ("finished fetching ideas, offset " ++ show offset ++ ", attempt ") currentAttempt
-  return ideas
+  if' (null ideas) mzero (return ideas)
 
 responseHandler :: Int -> Response -> InputStream ByteString -> IO (Maybe (Int, Body))
 responseHandler currentAttempt response inputStream = handle
