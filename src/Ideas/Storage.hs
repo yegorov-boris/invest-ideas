@@ -10,8 +10,8 @@ module Ideas.Storage
     ) where
 
 import GHC.Generics (Generic)
-import Control.Exception (SomeException, handle)
-import Database.PostgreSQL.Simple (ConnectInfo(..), ToRow, connect, close, executeMany, withTransaction)
+import Control.Exception (handle)
+import Database.PostgreSQL.Simple (ToRow, connect, close, executeMany, withTransaction)
 import Database.PostgreSQL.Simple.SqlQQ (sql)
 import qualified Data.Text as T
 import qualified Ideas.Response as I

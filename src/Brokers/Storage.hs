@@ -10,8 +10,8 @@ module Brokers.Storage
 
 import GHC.Generics (Generic)
 import Data.Maybe (fromMaybe)
-import Control.Exception (SomeException, handle)
-import Database.PostgreSQL.Simple (ConnectInfo(..), ToRow, connect, close, executeMany)
+import Control.Exception (handle)
+import Database.PostgreSQL.Simple (ToRow, connect, close, executeMany)
 import Database.PostgreSQL.Simple.SqlQQ (sql)
 import qualified Data.Text as T
 import qualified Brokers.Response as B
