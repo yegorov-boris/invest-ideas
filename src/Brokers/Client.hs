@@ -40,7 +40,7 @@ attemptFetch cf currentAttempt = do
       threadDelay (httpTimeout cf)
       >> return ("failed to fetch brokers: timed out, attempt " ++ show currentAttempt)
     )
-    (get (url cf 0 100) $ responseHandler currentAttempt)
+    (get (url cf "/brokers" 0 100) $ responseHandler currentAttempt)
   (statusCode, body) <- hoistEither result
   liftIO $ printWrap "started fetching brokers, attempt " currentAttempt
   hoistEither $ if'

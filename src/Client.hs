@@ -20,10 +20,12 @@ doAttemptFetch maxAttempts currentAttempt fetcher =
       (return Nothing)
       (doAttemptFetch maxAttempts (succ currentAttempt) fetcher)
 
-url :: CliFlags -> Int -> Int -> ByteString
-url cf offset limit = fromString $ intercalate "" [
+-- TODO: interpolate strings
+url :: CliFlags -> String -> Int -> Int -> ByteString
+url cf path offset limit = fromString $ intercalate "" [
     ideasURL cf
-  , "/brokers?api_key="
+  , path
+  , "?api_key="
   , token cf
   , "&offset="
   , show offset

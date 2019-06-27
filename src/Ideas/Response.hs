@@ -9,9 +9,12 @@ module Ideas.Response
 
 import GHC.Generics (Generic)
 import Text.Read (readMaybe)
-import Data.Aeson (FromJSON(..), withObject, (.:))
+import Data.Aeson (FromJSON(..), withObject, (.:), (.:?))
 import qualified Data.Text as T
 import Data.Time.LocalTime (ZonedTime)
+import Data.Time.Format (defaultTimeLocale, parseTimeM)
+import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
+import Control.Monad (mzero)
 
 data Body = Body {
     success :: Bool
@@ -26,7 +29,7 @@ data IdeaResponse = IdeaResponse {
   , isOpen           :: Bool
   , horizon          :: Int
   , dateStart        :: ZonedTime
-  , dateEnd          :: ZonedTime
+  , dateEnd          :: Maybe ZonedTime
   , priceStart       :: Double
   , price            :: Double
   , yield            :: Double
@@ -48,8 +51,6 @@ instance FromJSON IdeaResponse where
     brokerExternalID <- o .: "broker_id"
     isOpen           <- o .: "is_open"
     horizon          <- o .: "horizon"
-    dateStart        <- o .: "date_start"
-    dateEnd          <- o .: "date_end"
     priceStart       <- o .: "price_start"
     price            <- o .: "price"
     strategy         <- o .: "strategy"
@@ -58,17 +59,31 @@ instance FromJSON IdeaResponse where
     isVisible        <- o .: "visibility"
     believe          <- o .: "believe"
     notBelieve       <- o .: "not_believe"
-    expectedDateEnd  <- o .: "expected_date_end"
     ticker           <- o .: "ticker"
     tag              <- o .: "tags"
 
+--    TODO: dup
     yield <- o .: "yield" >>=
       maybe (fail "\"yield\" is not a Double") return . readMaybe
 
     targetYield <- o .: "target_yield" >>=
       maybe (fail "\"target_yield\" is not a Double") return . readMaybe
 
+    dateStart <- o .: "date_start" >>=
+      maybe (fail "\"date_start\" is not a DD.MM.YYYY") return . parseCustomTime
+
+    dateEnd <- runMaybeT (
+        (MaybeT $ o .:? "date_end")
+        >>= (\d -> case parseCustomTime d of Nothing -> fail "\"date_end\" is not a DD.MM.YYYY"; Just t -> return t)
+      )
+
+    expectedDateEnd <- o .: "expected_date_end" >>=
+      maybe (fail "\"expected_date_end\" is not a DD.MM.YYYY") return . parseCustomTime
+
     return IdeaResponse{..}
+
+parseCustomTime :: String -> Maybe ZonedTime
+parseCustomTime = parseTimeM False defaultTimeLocale "%d.%m.%Y"
 
 data Tag = Tag {
     jurisdiction :: T.Text

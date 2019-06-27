@@ -39,13 +39,13 @@ worker cf offset ideasCh = attemptFetch (httpMaxAttempts cf) (doFetch cf offset)
 
 doFetch :: CliFlags -> Int -> Int -> IO (Maybe [IdeaResponse])
 doFetch cf offset currentAttempt = handle
-  ((Nothing <$) . (defaultErrorHandler $ "failed to fetch brokers, attempt " ++ show currentAttempt ++ ": "))
+  ((Nothing <$) . (defaultErrorHandler $ "failed to fetch ideas, attempt " ++ show currentAttempt ++ ": "))
   (join <$> (timeout (httpTimeout cf) $ runMaybeT $ fetcher cf offset currentAttempt))
 
 fetcher :: CliFlags -> Int -> Int -> MaybeT IO [IdeaResponse]
 fetcher cf offset currentAttempt = do
   liftIO $ printWrap ("started fetching ideas, offset " ++ show offset ++ ", attempt ") currentAttempt
-  (statusCode, body) <- MaybeT $ get (url cf offset limit) $ responseHandler currentAttempt
+  (statusCode, body) <- MaybeT $ get (url cf "/ideas" offset limit) $ responseHandler currentAttempt
   if'
     (statusCode == 200)
     (return ())
@@ -65,7 +65,7 @@ fetcher cf offset currentAttempt = do
 
 responseHandler :: Int -> Response -> InputStream ByteString -> IO (Maybe (Int, Body))
 responseHandler currentAttempt response inputStream = handle
-  ((Nothing <$) . (defaultErrorHandler $ "failed to process brokers response, attempt " ++ show currentAttempt ++ ": "))
+  ((Nothing <$) . (defaultErrorHandler $ "failed to process ideas response, attempt " ++ show currentAttempt ++ ": "))
   (fmap (Just . (,) statusCode) (jsonHandler response inputStream :: IO Body))
   where
     statusCode = getStatusCode response
