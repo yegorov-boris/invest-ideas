@@ -72,10 +72,9 @@ instance FromJSON IdeaResponse where
     dateStart <- o .: "date_start" >>=
       maybe (fail "\"date_start\" is not a DD.MM.YYYY") return . parseCustomTime
 
-    dateEnd <- runMaybeT (
-        (MaybeT $ o .:? "date_end")
-        >>= (\d -> case parseCustomTime d of Nothing -> fail "\"date_end\" is not a DD.MM.YYYY"; Just t -> return t)
-      )
+    dateEnd <- runMaybeT $
+      (MaybeT $ o .:? "date_end")
+      >>= maybe (fail "\"date_end\" is not a DD.MM.YYYY") return . parseCustomTime
 
     expectedDateEnd <- o .: "expected_date_end" >>=
       maybe (fail "\"expected_date_end\" is not a DD.MM.YYYY") return . parseCustomTime
