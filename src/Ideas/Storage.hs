@@ -1,4 +1,3 @@
--- TODO: dup
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -11,7 +10,8 @@ module Ideas.Storage
 
 import GHC.Generics (Generic)
 import Control.Exception (handle)
-import Database.PostgreSQL.Simple (ToRow, connect, close, executeMany, withTransaction)
+import Control.Conditional (if')
+import Database.PostgreSQL.Simple (Connection, ToRow, connect, close, executeMany, returning, withTransaction)
 import Database.PostgreSQL.Simple.SqlQQ (sql)
 import qualified Data.Text as T
 import qualified Ideas.Response as I
@@ -20,115 +20,214 @@ import Storage (getConnectionInfo)
 import Utils (printWrap, defaultErrorHandler)
 
 batchUpsert :: CliFlags -> [I.IdeaResponse] -> IO ()
-batchUpsert cf ideas = do
-  putStrLn "started storing ideas"
-  handle (defaultErrorHandler "failed to store ideas: ") (doBatchUpsert cf ideas)
+batchUpsert cf ideas = putStrLn "started storing ideas" >> handle
+  (defaultErrorHandler "failed to store ideas: ")
+  (do
+    conn <- connect $ getConnectionInfo cf
+    brokerExternalIDs <- withTransaction conn $ doBatchUpsert conn ideas
+    close conn
+    putStrLn "finished storing ideas"
+    if'
+      (null brokerExternalIDs)
+      (return ())
+      (printWrap "brokers not found by external ID: " brokerExternalIDs)
+  )
 
-doBatchUpsert :: CliFlags -> [I.IdeaResponse] -> IO ()
-doBatchUpsert cf ideas = do
-  conn <- connect $ getConnectionInfo cf
---  executeMany conn query $ map toModel ideas
-  close conn
-  putStrLn "finished storing ideas"
---  where
---    query = [sql|
---        INSERT INTO ideas (
---          external_id
---          source,
---          name,
---          rating,
---          ideas_count,
---          ideas_positive,
---          description,
---          accuracy,
---          profitable_ideas_avg_yield,
---          total_profitable_ideas,
---          unprofitable_ideas_avg_yield,
---          total_unprofitable_ideas,
---          best_idea_external_id,
---          new_ideas_per_month,
---          idea_avg_days_long,
---          specialization_resume_asset,
---          specialization_resume_currency,
---          specialization_resume_description,
---          created_at,
---          updated_at,
---          is_deleted,
---          is_visible_mm,
---          is_visible_wm
---        )
---        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
---        ON CONFLICT (source, external_id) DO UPDATE SET
---          name=EXCLUDED.name,
---          rating=EXCLUDED.rating,
---          ideas_count=EXCLUDED.ideas_count,
---          ideas_positive=EXCLUDED.ideas_positive,
---          description=EXCLUDED.description,
---        	accuracy=EXCLUDED.accuracy,
---        	profitable_ideas_avg_yield=EXCLUDED.profitable_ideas_avg_yield,
---        	total_profitable_ideas=EXCLUDED.total_profitable_ideas,
---        	unprofitable_ideas_avg_yield=EXCLUDED.unprofitable_ideas_avg_yield,
---        	total_unprofitable_ideas=EXCLUDED.total_unprofitable_ideas,
---        	best_idea_external_id=EXCLUDED.best_idea_external_id,
---        	new_ideas_per_month=EXCLUDED.new_ideas_per_month,
---        	idea_avg_days_long=EXCLUDED.idea_avg_days_long,
---        	specialization_resume_asset=EXCLUDED.specialization_resume_asset,
---        	specialization_resume_currency=EXCLUDED.specialization_resume_currency,
---        	specialization_resume_description=EXCLUDED.specialization_resume_description,
---        	updated_at=now(),
---        	is_visible_mm=EXCLUDED.is_visible_mm,
---        	is_visible_wm=EXCLUDED.is_visible_wm
---      |]
+doBatchUpsert :: Connection -> [I.IdeaResponse] -> IO [Int]
+doBatchUpsert conn -> ideas = do
+  results <- returning conn upsertIdeasQuery $ map toModel ideas
 
---data IdeaModel = IdeaModel {
---    externalID                      :: String
---  , source                          :: String
---  , name                            :: T.Text
---  , rating                          :: Int
---  , ideasCount                      :: Int
---  , ideasPositive                   :: Int
---  , description                     :: T.Text
---  , accuracy                        :: Double
---  , profitableIdeasAvgYield         :: Double
---  , totalProfitableIdeas            :: Int
---  , unprofitableIdeasAvgYield       :: Double
---  , totalUnprofitableIdeas          :: Int
---  , bestIdeaExternalID              :: Maybe String
---  , newIdeasPerMonth                :: Int
---  , ideaAvgDaysLong                 :: Int
---  , specializationResumeAsset       :: T.Text
---  , specializationResumeCurrency    :: T.Text
---  , specializationResumeDescription :: T.Text
---  , createdAt                       :: String
---  , updatedAt                       :: String
---  , isDeleted                       :: Bool
---  , isVisibleMM                     :: Bool
---  , isVisibleWM                     :: Bool
---  } deriving (Generic, ToRow)
+  (upsertedIdeas, notUpsertedIdeas) <- partition $ isJust . fst $
+    map (\idea -> (I.externalID idea `lookup` results, idea)) ideas
 
---toModel :: I.IdeaResponse -> IdeaModel
---toModel i = IdeaModel {
---    externalID                      = show $ B.externalID b
---  , source                          = B.source b
---  , name                            = B.name b
---  , rating                          = B.rating b
---  , ideasCount                      = B.ideasCount b
---  , ideasPositive                   = B.ideasPositive b
---  , description                     = B.description b
---  , accuracy                        = B.accuracy b
---  , profitableIdeasAvgYield         = B.profitableIdeasAvgYield b
---  , totalProfitableIdeas            = B.totalProfitableIdeas b
---  , unprofitableIdeasAvgYield       = B.unprofitableIdeasAvgYield b
---  , totalUnprofitableIdeas          = B.totalUnprofitableIdeas b
---  , bestIdeaExternalID              = show <$> B.bestIdeaExternalID b
---  , newIdeasPerMonth                = B.newIdeasPerMonth b
---  , ideaAvgDaysLong                 = B.ideaAvgDaysLong b
---  , specializationResumeAsset       = fromMaybe "" $ asset $ B.specializationResume b
---  , specializationResumeCurrency    = fromMaybe "" $ currency $ B.specializationResume b
---  , specializationResumeDescription = fromMaybe "" $ txt $ B.specializationResume b
---  , createdAt                       = "now()"
---  , updatedAt                       = "now()"
---  , isDeleted                       = B.isDeleted b
---  , isVisibleMM                     = B.isVisibleMM b
---  , isVisibleWM                     = B.isVisibleWM b
---  }
+  executeMany conn insertTickersQuery $ map (\(Just id, idea) -> (id, I.ticker idea)) upsertedIdeas
+
+  executeMany conn insertTagsQuery $ map
+    (\(Just id, idea) -> let
+                           t = I.tag idea
+                           c = I.currency t
+                         in
+                           (id, if' (c == "Рубли") "Russian" "Foreign", c, I.jurisdiction t)
+    )
+    upsertedIdeas
+
+  return $ map I.brokerExternalID notUpsertedIdeas
+  where
+    upsertIdeasQuery = [sql|
+        INSERT INTO ideas (
+          external_id,
+          source,
+          broker_id,
+          is_open,
+          horizon,
+          date_start,
+          date_end,
+          price_start,
+          price,
+          yield,
+          target_yield,
+          strategy,
+          title,
+          description,
+          believe,
+          not_believe,
+          is_deleted,
+          expected_date_end,
+          created_at,
+          updated_at,
+          recommend,
+          is_visible_mm,
+          is_visible_wm
+        )
+        SELECT (
+          v.external_id,
+          v.source,
+          b.id,
+          v.is_open,
+          v.horizon,
+          v.date_start,
+          v.date_end,
+          v.price_start,
+          v.price,
+          v.yield,
+          v.target_yield,
+          v.strategy,
+          v.title,
+          v.description,
+          v.believe,
+          v.not_believe,
+          v.is_deleted,
+          v.expected_date_end,
+          v.created_at,
+          v.updated_at,
+          v.recommend,
+          v.is_visible_mm,
+          v.is_visible_wm
+        )
+        FROM (
+          VALUES
+          (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ) v (
+          external_id,
+          source,
+          broker_external_id,
+          is_open,
+          horizon,
+          date_start,
+          date_end,
+          price_start,
+          price,
+          yield,
+          target_yield,
+          strategy,
+          title,
+          description,
+          believe,
+          not_believe,
+          is_deleted,
+          expected_date_end,
+          created_at,
+          updated_at,
+          recommend,
+          is_visible_mm,
+          is_visible_wm
+        ) inner JOIN brokers b on b.external_id = v.broker_external_id
+        ON CONFLICT (source, external_id) DO UPDATE SET
+          broker_id=EXCLUDED.broker_id
+          is_open=EXCLUDED.is_open
+          horizon=EXCLUDED.horizon
+          date_start=EXCLUDED.date_start
+          date_end=EXCLUDED.date_end
+          price_start=EXCLUDED.price_start
+          price=EXCLUDED.price
+          yield=EXCLUDED.yield
+          target_yield=EXCLUDED.target_yield
+          strategy=EXCLUDED.strategy
+          title=EXCLUDED.title
+          description=EXCLUDED.description
+          believe=EXCLUDED.believe
+          not_believe=EXCLUDED.not_believe
+          is_deleted=EXCLUDED.is_deleted
+          expected_date_end=EXCLUDED.expected_date_end
+        	updated_at=now(),
+        	recommend=EXCLUDED.recommend,
+        	is_visible_mm=EXCLUDED.is_visible_mm,
+        	is_visible_wm=EXCLUDED.is_visible_wm
+        RETURNING external_id::INTEGER, id
+      |]
+    insertTickersQuery = [sql|
+        INSERT INTO idea_tickers (idea_id, ticker)
+        SELECT v.*
+        FROM (
+          VALUES
+          (?,?)
+        ) v (idea_id, ticker) LEFT JOIN idea_tickers t ON v.idea_id = t.idea_id
+        WHERE t.id IS NULL
+      |]
+    insertTagsQuery = [sql|
+        INSERT INTO idea_tags (idea_id, tag, currency, jurisdiction)
+        SELECT v.*
+        FROM (
+          VALUES
+          (?,?,?,?)
+        ) v (idea_id, tag, currency, jurisdiction) LEFT JOIN idea_tags t ON v.idea_id = t.idea_id
+        WHERE t.id IS NULL
+      |]
+
+data IdeaModel = IdeaModel {
+    externalID       :: Int
+  , brokerExternalID :: Int
+  , isOpen           :: Bool
+  , horizon          :: Int
+  , dateStart        :: ZonedTime
+  , dateEnd          :: Maybe ZonedTime
+  , priceStart       :: Double
+  , price            :: Double
+  , yield            :: Double
+  , targetYield      :: Double
+  , strategy         :: T.Text
+  , title            :: T.Text
+  , description      :: T.Text
+  , isVisible        :: Bool
+  , believe          :: Int
+  , notBelieve       :: Int
+  , isDeleted        :: Bool
+  , expectedDateEnd  :: ZonedTime
+  , createdAt        :: ZonedTime
+  , updatedAt        :: ZonedTime
+  , recommend        :: String
+  , isVisibleMM      :: Bool
+  , isVisibleWM      :: Bool
+  } deriving (Generic, ToRow)
+
+toModel :: I.IdeaResponse -> IdeaModel
+toModel i = IdeaModel {
+    externalID       = I.externalID i
+  , brokerExternalID = I.brokerExternalID i
+  , isOpen           = I.isOpen i
+  , horizon          = if' (horizon' == 0 && isJust dateEnd') () horizon'
+  , dateStart        = I.dateStart i
+  , dateEnd          = if' (horizon' == 0) () () `fromMaybe` dateEnd'
+  , priceStart       = I.priceStart i
+  , price            = I.price i
+  , yield            = I.yield i
+  , targetYield      = I.targetYield i
+  , strategy         = strategy'
+  , title            = I.title i
+  , description      = I.description i
+  , isVisible        = visible
+  , believe          = I.believe i
+  , notBelieve       = I.notBelieve i
+  , isDeleted        = False
+  , expectedDateEnd  = I.expectedDateEnd i
+  , createdAt        = "now()"
+  , updatedAt        = "now()"
+  , recommend        = ""
+  , isVisibleMM      = visible && strategy'
+  , isVisibleWM      = visible && strategy'
+  }
+  where
+    horizon' = I.horizon i
+    dateEnd' = I.dateEnd i
+    strategy' = I.strategy i /= "Падение"
+    visible = I.isVisible i

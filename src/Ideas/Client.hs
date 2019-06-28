@@ -23,7 +23,7 @@ limit = 100
 
 fetch :: CliFlags -> Chan (Maybe [IdeaResponse]) -> IO ()
 fetch cf ideasCh = do
-  m <- newEmptyMVar
+  m <- newEmptyMVar -- TODO: Control.Concurrent.Async
   forkIO $ worker cf 0 ideasCh m
   forkIO $ worker cf limit ideasCh m
   takeMVar m
@@ -38,14 +38,14 @@ worker cf offset ideasCh m = attemptFetch (httpMaxAttempts cf) (doFetch cf offse
 
 doFetch :: CliFlags -> Int -> Int -> IO (Maybe [IdeaResponse])
 doFetch cf offset currentAttempt = handle
-  ((Nothing <$) . (defaultErrorHandler $ "failed to fetch ideas, attempt " ++ show currentAttempt ++ ": "))
+  ((Nothing <$) . (defaultErrorHandler $ "failed to fetch ideas, attempt " ++ show currentAttempt ++ ": ")) -- TODO: strings interpolation
   (join <$> (timeout (httpTimeout cf) $ runMaybeT $ fetcher cf offset currentAttempt))
 
 fetcher :: CliFlags -> Int -> Int -> MaybeT IO [IdeaResponse]
 fetcher cf offset currentAttempt = do
   liftIO $ printWrap ("started fetching ideas, offset " ++ show offset ++ ", attempt ") currentAttempt
   (statusCode, body) <- MaybeT $ get (url cf "/ideas" offset limit) $ responseHandler currentAttempt
-  if'
+  if' -- TODO: when
     (statusCode == 200)
     (return ())
     (let
