@@ -14,10 +14,13 @@ import Control.Conditional (if')
 import Database.PostgreSQL.Simple (Connection, ToRow, connect, close, executeMany, returning, withTransaction)
 import Database.PostgreSQL.Simple.SqlQQ (sql)
 import qualified Data.Text as T
+import Data.Time.LocalTime (ZonedTime, zonedTimeToUTC, utcToZonedTime) -- TODO: try to use Data.Time.Calendar.Day
+import Data.Time.Clock (UTCTime, utctDay, utctDayTime, secondsToDiffTime)
+import Data.Time.Calendar (addDays, diffDays)
 import qualified Ideas.Response as I
 import Flags.Flags (CliFlags(..))
 import Storage (getConnectionInfo)
-import Utils (printWrap, defaultErrorHandler)
+import Utils (printWrap, defaultErrorHandler, parseCustomTime)
 
 batchUpsert :: CliFlags -> [I.IdeaResponse] -> IO ()
 batchUpsert cf ideas = putStrLn "started storing ideas" >> handle
@@ -175,12 +178,12 @@ doBatchUpsert conn -> ideas = do
       |]
 
 data IdeaModel = IdeaModel {
-    externalID       :: Int
-  , brokerExternalID :: Int
+    externalID       :: String
+  , brokerExternalID :: String
   , isOpen           :: Bool
   , horizon          :: Int
   , dateStart        :: ZonedTime
-  , dateEnd          :: Maybe ZonedTime
+  , dateEnd          :: ZonedTime
   , priceStart       :: Double
   , price            :: Double
   , yield            :: Double
@@ -193,8 +196,8 @@ data IdeaModel = IdeaModel {
   , notBelieve       :: Int
   , isDeleted        :: Bool
   , expectedDateEnd  :: ZonedTime
-  , createdAt        :: ZonedTime
-  , updatedAt        :: ZonedTime
+  , createdAt        :: String
+  , updatedAt        :: String
   , recommend        :: String
   , isVisibleMM      :: Bool
   , isVisibleWM      :: Bool
@@ -202,12 +205,11 @@ data IdeaModel = IdeaModel {
 
 toModel :: I.IdeaResponse -> IdeaModel
 toModel i = IdeaModel {
-    externalID       = I.externalID i
-  , brokerExternalID = I.brokerExternalID i
+    externalID       = show $ I.externalID i
+  , brokerExternalID = show $ I.brokerExternalID i
   , isOpen           = I.isOpen i
-  , horizon          = if' (horizon' == 0 && isJust dateEnd') () horizon'
+  , horizon          = if' (horizon' == 0 && isJust dateEnd') (daysDiff $ fromJust dateEnd') horizon'
   , dateStart        = I.dateStart i
-  , dateEnd          = if' (horizon' == 0) () () `fromMaybe` dateEnd'
   , priceStart       = I.priceStart i
   , price            = I.price i
   , yield            = I.yield i
@@ -225,9 +227,18 @@ toModel i = IdeaModel {
   , recommend        = ""
   , isVisibleMM      = visible && strategy'
   , isVisibleWM      = visible && strategy'
+
+  , dateEnd = case dateEnd' of
+    Just d  -> d
+    Nothing -> if'
+      (horizon' == 0)
+      (fromJust $ parseCustomTime "01.01.1970")
+      (let t = addDays horizon' dayStart in utcToZonedTime $ UTCTime (utctDay t) (secondsToDiffTime 0))
   }
   where
-    horizon' = I.horizon i
-    dateEnd' = I.dateEnd i
-    strategy' = I.strategy i /= "Падение"
-    visible = I.isVisible i
+    horizon'   = I.horizon i
+    dateEnd'   = I.dateEnd i
+    strategy'  = I.strategy i /= "Падение"
+    visible    = I.isVisible i
+    dayStart   = utctDay $ zonedTimeToUTC $ dateStart i
+    daysDiff d = diffDays (utctDay $ zonedTimeToUTC d) dayStart

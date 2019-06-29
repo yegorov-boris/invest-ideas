@@ -9,7 +9,7 @@ import Control.Monad (join, mzero, (>=>))
 import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
 import Control.Monad.IO.Class (liftIO)
 import Control.Conditional (if')
-import Control.Concurrent (forkIO, MVar, newEmptyMVar, putMVar, takeMVar)
+import Control.Concurrent.Async (mapConcurrently_)
 import Control.Concurrent.Chan (Chan, writeChan)
 import System.Timeout (timeout)
 import Control.Exception (handle)
@@ -18,23 +18,17 @@ import Ideas.Response (Body(..), IdeaResponse)
 import Client (attemptFetch, url)
 import Utils (printWrap, defaultErrorHandler)
 
-limit :: Int
-limit = 100
+limit = 100 :: Int
 
-fetch :: CliFlags -> Chan (Maybe [IdeaResponse]) -> IO ()
+fetch :: CliFlags -> Chan [IdeaResponse] -> IO ()
 fetch cf ideasCh = do
-  m <- newEmptyMVar -- TODO: Control.Concurrent.Async
-  forkIO $ worker cf 0 ideasCh m
-  forkIO $ worker cf limit ideasCh m
-  takeMVar m
-  takeMVar m
-  writeChan ideasCh Nothing
+  mapConcurrently_ (worker cf ideasCh) [0, limit]
+  putStrLn "finished fetching ideas"
 
-worker :: CliFlags -> Int -> Chan (Maybe [IdeaResponse]) -> MVar () -> IO ()
-worker cf offset ideasCh m = attemptFetch (httpMaxAttempts cf) (doFetch cf offset) >>=
-  maybe
-    (putMVar m ())
-    (writeChan ideasCh . Just >=> (\_ -> worker cf (offset + 2 * limit) ideasCh m))
+worker :: CliFlags -> Chan [IdeaResponse] -> Int -> IO ()
+worker cf ideasCh offset = attemptFetch (httpMaxAttempts cf) (doFetch cf offset) >>= maybe
+  mempty
+  (writeChan ideasCh >=> (\_ -> worker cf ideasCh $ offset + 2 * limit))
 
 doFetch :: CliFlags -> Int -> Int -> IO (Maybe [IdeaResponse])
 doFetch cf offset currentAttempt = handle

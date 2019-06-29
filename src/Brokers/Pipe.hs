@@ -12,6 +12,7 @@ runFetcher cf m = do
   update cf
   putMVar m ()
 
+-- TODO: forever
 update :: CliFlags -> IO ()
 update cf = do
   fetch cf >>= maybe (return ()) (batchUpsert cf)

@@ -26,4 +26,4 @@ doStocksCache cf = do
   tickers <- query_ conn [sql|SELECT ticker FROM stocks|]
   close conn
   putStrLn "found stocks"
-  return $ Just $ HashSet.fromList $ fromOnly <$> tickers
+  return $ Just $ HashSet.fromList $ filter (not . T.null) $ map fromOnly tickers

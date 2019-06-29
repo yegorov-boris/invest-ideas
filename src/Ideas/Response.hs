@@ -12,9 +12,9 @@ import Text.Read (readMaybe)
 import Data.Aeson (FromJSON(..), withObject, (.:), (.:?))
 import qualified Data.Text as T
 import Data.Time.LocalTime (ZonedTime)
-import Data.Time.Format (defaultTimeLocale, parseTimeM)
 import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
 import Control.Monad (mzero)
+import Utils (parseCustomTime)
 
 data Body = Body {
     success :: Bool
@@ -80,9 +80,6 @@ instance FromJSON IdeaResponse where
       maybe (fail "\"expected_date_end\" is not a DD.MM.YYYY") return . parseCustomTime
 
     return IdeaResponse{..}
-
-parseCustomTime :: String -> Maybe ZonedTime
-parseCustomTime = parseTimeM False defaultTimeLocale "%d.%m.%Y"
 
 data Tag = Tag {
     jurisdiction :: T.Text
