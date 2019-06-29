@@ -5,6 +5,7 @@
 module Ideas.Response
     ( Body(..)
     , IdeaResponse(..)
+    , Tag(..)
     ) where
 
 import GHC.Generics (Generic)

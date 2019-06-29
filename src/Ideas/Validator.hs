@@ -2,6 +2,7 @@ module Ideas.Validator
     ( start
     ) where
 
+import Data.Maybe (fromJust, isJust)
 import qualified Data.HashSet as HashSet
 import qualified Data.Text as T
 import Control.Conditional (if', select)
@@ -34,21 +35,19 @@ validateBatch :: Cache -> IdeasChan -> IdeasChan -> IO ()
 validateBatch stocks ideasCh validIdeasCh = do
   ideas <- readChan ideasCh -- TODO: try to use uncurry
   now <- getCurrentTime
-  let
-    finder = (`HashSet.member` stocksCache) . ticker
-  in
-    (filterM validateM finder now $ setTicker finder `map` ideas)
-    >>= writeChan validIdeasCh
+  let finder = (`HashSet.member` stocks) . ticker
+  filterM (validateM finder now) (setTicker finder `map` ideas) >>= writeChan validIdeasCh
 
-validateBy :: Finder -> UTCTime -> IdeaResponse -> IO Bool
-validateBy finder now idea
-  | not $ isOpen idea                             = putStrLn closed >> return False
-  | not $ finder idea                             = putStrLn tickerMsg >> return False
-  | hasDateEnd && (zonedTimeToUTC dateEnd') < now = putStrLn outdated >> return False
-  | hasDateEnd && (dateStart idea > dateEnd')     = putStrLn dateStartMsg >> return False
+validateM :: Finder -> UTCTime -> IdeaResponse -> IO Bool
+validateM finder now idea
+  | not $ isOpen idea                     = putStrLn closed >> return False
+  | not $ finder idea                     = putStrLn tickerMsg >> return False
+  | hasDateEnd && dateEnd' < now          = putStrLn outdated >> return False
+  | hasDateEnd && (dateStart' > dateEnd') = putStrLn dateStartMsg >> return False
   | otherwise = return True
   where
-    dateEnd'     = fromJust $ dateEnd idea
+    dateEnd'     = zonedTimeToUTC $ fromJust $ dateEnd idea
+    dateStart'   = zonedTimeToUTC $ dateStart idea
     hasDateEnd   = isJust $ dateEnd idea
     closed       = "idea is closed"
     tickerMsg    = "ticker not found"
@@ -56,7 +55,7 @@ validateBy finder now idea
     dateStartMsg = "an idea should have its date start before its date end"
 
 setTicker :: Finder -> IdeaResponse -> IdeaResponse
-setTicker finder idea = select
+setTicker finder = select
   finder
   id
   (\i -> let t = ticker i in i {ticker = T.takeWhile (== '.') t})

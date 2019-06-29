@@ -8,14 +8,16 @@ module Ideas.Storage
     ( batchUpsert
     ) where
 
+import Data.List (partition)
+import Data.Maybe (isJust, fromJust)
 import GHC.Generics (Generic)
 import Control.Exception (handle)
 import Control.Conditional (if')
 import Database.PostgreSQL.Simple (Connection, ToRow, connect, close, executeMany, returning, withTransaction)
 import Database.PostgreSQL.Simple.SqlQQ (sql)
 import qualified Data.Text as T
-import Data.Time.LocalTime (ZonedTime, zonedTimeToUTC, utcToZonedTime) -- TODO: try to use Data.Time.Calendar.Day
-import Data.Time.Clock (UTCTime, utctDay, utctDayTime, secondsToDiffTime)
+import Data.Time.LocalTime (ZonedTime, zonedTimeToUTC, utcToZonedTime, utc) -- TODO: try to use Data.Time.Calendar.Day
+import Data.Time.Clock (UTCTime(..), utctDay, utctDayTime, secondsToDiffTime)
 import Data.Time.Calendar (addDays, diffDays)
 import qualified Ideas.Response as I
 import Flags.Flags (CliFlags(..))
@@ -37,24 +39,21 @@ batchUpsert cf ideas = putStrLn "started storing ideas" >> handle
   )
 
 doBatchUpsert :: Connection -> [I.IdeaResponse] -> IO [Int]
-doBatchUpsert conn -> ideas = do
-  results <- returning conn upsertIdeasQuery $ map toModel ideas
-
-  (upsertedIdeas, notUpsertedIdeas) <- partition $ isJust . fst $
-    map (\idea -> (I.externalID idea `lookup` results, idea)) ideas
-
+doBatchUpsert conn ideas = do
+  results <- (returning conn upsertIdeasQuery $ map toModel ideas) :: IO [(Int, Int)]
+  let ideasWithMaybeIDs = map (\idea -> (I.externalID idea `lookup` results, idea)) ideas
+  let (upsertedIdeas, notUpsertedIdeas) = partition (isJust . fst) ideasWithMaybeIDs
   executeMany conn insertTickersQuery $ map (\(Just id, idea) -> (id, I.ticker idea)) upsertedIdeas
-
   executeMany conn insertTagsQuery $ map
-    (\(Just id, idea) -> let
-                           t = I.tag idea
-                           c = I.currency t
-                         in
-                           (id, if' (c == "Рубли") "Russian" "Foreign", c, I.jurisdiction t)
+    (\(Just id, idea) ->
+      let
+        t = I.tag idea
+        c = I.currency t
+      in
+        (id, if' (c == ("Рубли" :: T.Text)) ("Russian" :: T.Text) ("Foreign" :: T.Text), c, I.jurisdiction t)
     )
     upsertedIdeas
-
-  return $ map I.brokerExternalID notUpsertedIdeas
+  return $ map (I.brokerExternalID . snd) notUpsertedIdeas
   where
     upsertIdeasQuery = [sql|
         INSERT INTO ideas (
@@ -188,7 +187,7 @@ data IdeaModel = IdeaModel {
   , price            :: Double
   , yield            :: Double
   , targetYield      :: Double
-  , strategy         :: T.Text
+  , strategy         :: Bool
   , title            :: T.Text
   , description      :: T.Text
   , isVisible        :: Bool
@@ -208,7 +207,7 @@ toModel i = IdeaModel {
     externalID       = show $ I.externalID i
   , brokerExternalID = show $ I.brokerExternalID i
   , isOpen           = I.isOpen i
-  , horizon          = if' (horizon' == 0 && isJust dateEnd') (daysDiff $ fromJust dateEnd') horizon'
+  , horizon          = if' (horizon' == 0 && isJust dateEnd') (fromInteger $ daysDiff $ fromJust dateEnd') horizon'
   , dateStart        = I.dateStart i
   , priceStart       = I.priceStart i
   , price            = I.price i
@@ -233,12 +232,12 @@ toModel i = IdeaModel {
     Nothing -> if'
       (horizon' == 0)
       (fromJust $ parseCustomTime "01.01.1970")
-      (let t = addDays horizon' dayStart in utcToZonedTime $ UTCTime (utctDay t) (secondsToDiffTime 0))
+      (let t = addDays (toInteger horizon') dayStart in utcToZonedTime utc $ UTCTime t (secondsToDiffTime 0))
   }
   where
     horizon'   = I.horizon i
     dateEnd'   = I.dateEnd i
     strategy'  = I.strategy i /= "Падение"
     visible    = I.isVisible i
-    dayStart   = utctDay $ zonedTimeToUTC $ dateStart i
+    dayStart   = utctDay $ zonedTimeToUTC $ I.dateStart i
     daysDiff d = diffDays (utctDay $ zonedTimeToUTC d) dayStart
