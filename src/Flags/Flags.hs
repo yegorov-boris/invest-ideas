@@ -37,7 +37,7 @@ cliFlagsRaw = R.CliFlags
       <*> strOption
           ( long "token"
          <> metavar "TOKEN"
-         <> value "9DveVCkwkhrPWeUhp9wezHPVMpAGKRRJ" )
+         <> value "9DveVCkwkhrPWeUhp9wezHPVMpTGKRRJ" )
       <*> strOption
           ( long "ideas-polling-interval"
          <> metavar "IDEAS_POLLING_INTERVAL"

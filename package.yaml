@@ -37,7 +37,6 @@ dependencies:
 - async
 - hashmap
 - transformers
-- bifunctors
 
 library:
   source-dirs: src
