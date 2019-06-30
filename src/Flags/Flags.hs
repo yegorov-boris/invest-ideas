@@ -14,17 +14,19 @@ import Data.Word (Word16)
 import Data.IP (IP)
 import qualified Flags.Raw as R
 
-data CliFlags = CliFlags
-  { ideasURL             :: String
-  , token                :: String
-  , ideasPollingInterval :: Int
-  , httpTimeout          :: Int
-  , httpMaxAttempts      :: Int
-  , dbHost               :: String
-  , dbPort               :: Word16
-  , dbName               :: String
-  , dbUser               :: String
-  , dbPassword           :: String }
+data CliFlags = CliFlags {
+    ideasURL              :: String
+  , token                 :: String
+  , ideasPollingInterval  :: Int
+  , httpTimeout           :: Int
+  , httpMaxAttempts       :: Int
+  , dbHost                :: String
+  , dbPort                :: Word16
+  , dbName                :: String
+  , dbUser                :: String
+  , dbPassword            :: String
+  , stocksPollingInterval :: Int
+  }
 
 cliFlagsRaw :: Parser R.CliFlags
 cliFlagsRaw = R.CliFlags
@@ -38,7 +40,7 @@ cliFlagsRaw = R.CliFlags
          <> value "9DveVCkwkhrPWeUhp9wezHPVMpAGKRRJ" )
       <*> strOption
           ( long "ideas-polling-interval"
-         <> metavar "POLLING_INTERVAL"
+         <> metavar "IDEAS_POLLING_INTERVAL"
          <> value "15m" )
       <*> option auto
           ( long "http-timeout"
@@ -68,24 +70,30 @@ cliFlagsRaw = R.CliFlags
           ( long "db-password"
          <> metavar "DB_PASSWORD"
          <> value "passwd" )
+      <*> strOption
+          ( long "stocks-polling-interval"
+         <> metavar "POLLING_INTERVAL"
+         <> value "24h" )
 
 parseCliFlags :: ExceptT String IO CliFlags
 parseCliFlags = do
   raw <- liftIO $ execParser opts
-  interval <- hoistEither $ parsePollingInterval $ R.ideasPollingInterval raw
+  ideasInterval <- hoistEither $ parsePollingInterval "ideas-polling-interval" $ R.ideasPollingInterval raw
+  stocksInterval <- hoistEither $ parsePollingInterval "stocks-polling-interval" $ R.stocksPollingInterval raw
   timeout <- hoistEither $ validateHttpTimeout $ R.httpTimeout raw
   maxAttempts <- hoistEither $ validateHttpMaxAttempts $ R.httpMaxAttempts raw
   return CliFlags {
-      ideasURL             = R.ideasURL raw
-    , token                = R.token raw
-    , ideasPollingInterval = interval * 60 * second
-    , httpTimeout          = timeout * second
-    , httpMaxAttempts      = maxAttempts
-    , dbHost               = show $ R.dbHost raw
-    , dbPort               = R.dbPort raw
-    , dbName               = R.dbName raw
-    , dbUser               = R.dbUser raw
-    , dbPassword           = R.dbPassword raw
+      ideasURL              = R.ideasURL raw
+    , token                 = R.token raw
+    , ideasPollingInterval  = ideasInterval * 60 * second
+    , stocksPollingInterval = stocksInterval * 60 * second
+    , httpTimeout           = timeout * second
+    , httpMaxAttempts       = maxAttempts
+    , dbHost                = show $ R.dbHost raw
+    , dbPort                = R.dbPort raw
+    , dbName                = R.dbName raw
+    , dbUser                = R.dbUser raw
+    , dbPassword            = R.dbPassword raw
     }
   where
     opts = info (cliFlagsRaw <**> helper)
@@ -94,22 +102,22 @@ parseCliFlags = do
       <> header "hello" )
     second = 1000 * 1000
 
-parsePollingInterval :: String -> Either String Int
-parsePollingInterval s =
+parsePollingInterval :: String -> String -> Either String Int
+parsePollingInterval name s =
   liftA2 (*) (safeLast s >>= parseLetter) (safeInit s >>= safeRead)
-  >>= validatePollingInterval
+  >>= validatePollingInterval name
   where
-    safeLast = maybe (Left "failed to parse ideas-polling-interval") Right . L.last
+    safeLast = maybe (Left $ "failed to parse " ++ name) Right . L.last
     parseLetter 'm' = Right 1
     parseLetter 'h' = Right 60
-    parseLetter _   = Left "wrong format of ideas-polling-interval"
-    safeInit = maybe (Left "unsupported unit of time measurement in ideas-polling-interval") Right . L.init
+    parseLetter _   = Left $ "wrong format of " ++ name
+    safeInit = maybe (Left $ "unsupported unit of time measurement in " ++ name) Right . L.init
     safeRead = \v -> readEither v :: Either String Int
 
-validatePollingInterval :: Int -> Either String Int
-validatePollingInterval n
-  | n < 1       = Left "ideas-polling-interval should be at least 1m"
-  | n > 24 * 60 = Left "ideas-polling-interval should be no more than 24h"
+validatePollingInterval :: String -> Int -> Either String Int
+validatePollingInterval name n
+  | n < 1       = Left $ name ++ " should be at least 1m"
+  | n > 24 * 60 = Left $ name ++ " should be no more than 24h"
   | otherwise = Right n
 
 validateHttpTimeout :: Int -> Either String Int

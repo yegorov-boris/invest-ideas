@@ -5,35 +5,47 @@ module Ideas.Validator
 import Data.Maybe (fromJust, isJust)
 import qualified Data.HashSet as HashSet
 import qualified Data.Text as T
-import Control.Conditional (if', select)
-import Control.Monad (forever, filterM, (>=>))
-import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
-import Control.Concurrent.Chan (Chan, newChan, readChan, writeChan)
-import Control.Concurrent (forkIO)
+import Control.Conditional (select)
+import Control.Monad (forever, filterM, (>=>), mzero)
+import Control.Concurrent (
+    forkIO
+  , MVar, newMVar, readMVar, swapMVar
+  , threadDelay
+  , Chan, newChan, readChan, writeChan
+  )
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.Time.LocalTime (zonedTimeToUTC)
 import Ideas.Response (IdeaResponse(..))
 import Stocks.Storage (stocksCache)
 import Flags.Flags (CliFlags(..))
 
+-- TODO: move to the proper place and import in other places
 type Cache = HashSet.Set T.Text
 type Finder = IdeaResponse -> Bool
 type IdeasChan = Chan [IdeaResponse]
 
--- TODO: try to use MaybeT
-start :: CliFlags -> Chan [IdeaResponse] -> IO (Maybe (IdeasChan))
+start :: CliFlags -> IdeasChan -> IO (Maybe IdeasChan)
 start cf ideasCh = stocksCache cf >>= maybe
   (return Nothing)
   (\stocks -> do
-    validIdeasCh <- newChan -- TODO: try to use bimap
-    forkIO $ forever $ validateBatch stocks ideasCh validIdeasCh
+    m <- newMVar stocks
+    forkIO $ forever $ updateCache cf m
+    validIdeasCh <- newChan
+    forkIO $ forever $ validateBatch m ideasCh validIdeasCh
     return $ Just validIdeasCh
   )
 
--- TODO: update the stocks by timeout
-validateBatch :: Cache -> IdeasChan -> IdeasChan -> IO ()
-validateBatch stocks ideasCh validIdeasCh = do
-  ideas <- readChan ideasCh -- TODO: try to use uncurry
+updateCache :: CliFlags -> MVar Cache -> IO ()
+updateCache cf m = do
+  threadDelay $ stocksPollingInterval cf
+  stocksCache cf >>= maybe
+    mzero
+    (swapMVar m >=> \_ -> putStrLn "stocks cache updated")
+
+validateBatch :: MVar Cache -> IdeasChan -> IdeasChan -> IO ()
+validateBatch stocksCh ideasCh validIdeasCh = do
+  ideas <- readChan ideasCh
+  stocks <- readMVar stocksCh
   now <- getCurrentTime
   let finder = (`HashSet.member` stocks) . ticker
   filterM (validateM finder now) (setTicker finder `map` ideas) >>= writeChan validIdeasCh
