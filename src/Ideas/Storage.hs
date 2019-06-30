@@ -81,14 +81,14 @@ doBatchUpsert conn ideas = do
           is_visible_mm,
           is_visible_wm
         )
-        SELECT (
+        SELECT
           v.external_id,
           v.source,
           b.id,
           v.is_open,
           v.horizon,
-          v.date_start,
-          v.date_end,
+          v.date_start::TIMESTAMP WITH TIME ZONE,
+          v.date_end::TIMESTAMP WITH TIME ZONE,
           v.price_start,
           v.price,
           v.yield,
@@ -99,13 +99,12 @@ doBatchUpsert conn ideas = do
           v.believe,
           v.not_believe,
           v.is_deleted,
-          v.expected_date_end,
-          v.created_at,
-          v.updated_at,
+          v.expected_date_end::TIMESTAMP WITH TIME ZONE,
+          v.created_at::TIMESTAMP WITH TIME ZONE,
+          v.updated_at::TIMESTAMP WITH TIME ZONE,
           v.recommend,
           v.is_visible_mm,
           v.is_visible_wm
-        )
         FROM (
           VALUES
           (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -179,7 +178,7 @@ doBatchUpsert conn ideas = do
 data IdeaModel = IdeaModel {
     externalID       :: String
   , source           :: String
-  , brokerExternalID :: Int
+  , brokerExternalID :: String
   , isOpen           :: Bool
   , horizon          :: Int
   , dateStart        :: ZonedTime
