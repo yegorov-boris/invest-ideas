@@ -135,22 +135,22 @@ doBatchUpsert conn ideas = do
           is_visible_wm
         ) inner JOIN brokers b on b.external_id = v.broker_external_id
         ON CONFLICT (source, external_id) DO UPDATE SET
-          broker_id=EXCLUDED.broker_id
-          is_open=EXCLUDED.is_open
-          horizon=EXCLUDED.horizon
-          date_start=EXCLUDED.date_start
-          date_end=EXCLUDED.date_end
-          price_start=EXCLUDED.price_start
-          price=EXCLUDED.price
-          yield=EXCLUDED.yield
-          target_yield=EXCLUDED.target_yield
-          strategy=EXCLUDED.strategy
-          title=EXCLUDED.title
-          description=EXCLUDED.description
-          believe=EXCLUDED.believe
-          not_believe=EXCLUDED.not_believe
-          is_deleted=EXCLUDED.is_deleted
-          expected_date_end=EXCLUDED.expected_date_end
+          broker_id=EXCLUDED.broker_id,
+          is_open=EXCLUDED.is_open,
+          horizon=EXCLUDED.horizon,
+          date_start=EXCLUDED.date_start,
+          date_end=EXCLUDED.date_end,
+          price_start=EXCLUDED.price_start,
+          price=EXCLUDED.price,
+          yield=EXCLUDED.yield,
+          target_yield=EXCLUDED.target_yield,
+          strategy=EXCLUDED.strategy,
+          title=EXCLUDED.title,
+          description=EXCLUDED.description,
+          believe=EXCLUDED.believe,
+          not_believe=EXCLUDED.not_believe,
+          is_deleted=EXCLUDED.is_deleted,
+          expected_date_end=EXCLUDED.expected_date_end,
         	updated_at=now(),
         	recommend=EXCLUDED.recommend,
         	is_visible_mm=EXCLUDED.is_visible_mm,
@@ -178,7 +178,8 @@ doBatchUpsert conn ideas = do
 
 data IdeaModel = IdeaModel {
     externalID       :: String
-  , brokerExternalID :: String
+  , source           :: String
+  , brokerExternalID :: Int
   , isOpen           :: Bool
   , horizon          :: Int
   , dateStart        :: ZonedTime
@@ -190,7 +191,6 @@ data IdeaModel = IdeaModel {
   , strategy         :: Bool
   , title            :: T.Text
   , description      :: T.Text
-  , isVisible        :: Bool
   , believe          :: Int
   , notBelieve       :: Int
   , isDeleted        :: Bool
@@ -205,8 +205,9 @@ data IdeaModel = IdeaModel {
 toModel :: I.IdeaResponse -> IdeaModel
 toModel i = IdeaModel {
     externalID       = show $ I.externalID i
+  , source           = "invest-idei.ru"
   , brokerExternalID = show $ I.brokerExternalID i
-  , isOpen           = I.isOpen i
+  , isOpen           = True
   , horizon          = if' (horizon' == 0 && isJust dateEnd') (fromInteger $ daysDiff $ fromJust dateEnd') horizon'
   , dateStart        = I.dateStart i
   , priceStart       = I.priceStart i
@@ -216,7 +217,6 @@ toModel i = IdeaModel {
   , strategy         = strategy'
   , title            = I.title i
   , description      = I.description i
-  , isVisible        = visible
   , believe          = I.believe i
   , notBelieve       = I.notBelieve i
   , isDeleted        = False
@@ -224,8 +224,8 @@ toModel i = IdeaModel {
   , createdAt        = "now()"
   , updatedAt        = "now()"
   , recommend        = ""
-  , isVisibleMM      = visible && strategy'
-  , isVisibleWM      = visible && strategy'
+  , isVisibleMM      = visible
+  , isVisibleWM      = visible
 
   , dateEnd = case dateEnd' of
     Just d  -> d
@@ -238,6 +238,6 @@ toModel i = IdeaModel {
     horizon'   = I.horizon i
     dateEnd'   = I.dateEnd i
     strategy'  = I.strategy i /= "Падение"
-    visible    = I.isVisible i
+    visible    = I.isVisible i && strategy'
     dayStart   = utctDay $ zonedTimeToUTC $ I.dateStart i
     daysDiff d = diffDays (utctDay $ zonedTimeToUTC d) dayStart
