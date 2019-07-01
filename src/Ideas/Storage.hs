@@ -8,6 +8,7 @@ module Ideas.Storage
     ( batchUpsert
     ) where
 
+import Text.Printf (printf)
 import Data.List (partition)
 import Data.Maybe (isJust, fromJust)
 import GHC.Generics (Generic)
@@ -22,7 +23,7 @@ import Data.Time.Calendar (addDays, diffDays)
 import qualified Ideas.Response as I
 import Flags.Flags (CliFlags(..))
 import Storage (getConnectionInfo)
-import Utils (printWrap, defaultErrorHandler, parseCustomTime)
+import Utils (defaultErrorHandler, parseCustomTime)
 
 batchUpsert :: CliFlags -> [I.IdeaResponse] -> IO ()
 batchUpsert cf ideas = putStrLn "started storing ideas" >> handle
@@ -35,7 +36,7 @@ batchUpsert cf ideas = putStrLn "started storing ideas" >> handle
     if'
       (null brokerExternalIDs)
       (return ())
-      (printWrap "brokers not found by external ID: " brokerExternalIDs)
+      (printf "brokers not found by external ID: %s" $ show brokerExternalIDs)
   )
 
 doBatchUpsert :: Connection -> [I.IdeaResponse] -> IO [Int]

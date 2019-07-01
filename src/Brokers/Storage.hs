@@ -17,7 +17,7 @@ import qualified Data.Text as T
 import qualified Brokers.Response as B
 import Flags.Flags (CliFlags(..))
 import Storage (getConnectionInfo)
-import Utils (printWrap, defaultErrorHandler)
+import Utils (defaultErrorHandler)
 
 batchUpsert :: CliFlags -> [B.BrokerResponse] -> IO ()
 batchUpsert cf brokers = do

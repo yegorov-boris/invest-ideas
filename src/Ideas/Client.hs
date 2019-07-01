@@ -2,6 +2,7 @@ module Ideas.Client
     (fetch
     ) where
 
+import Text.Printf (printf)
 import Network.Http.Client (Response, get, getStatusCode, jsonHandler)
 import Data.ByteString.UTF8 (ByteString)
 import System.IO.Streams (InputStream)
@@ -16,7 +17,7 @@ import Control.Exception (handle)
 import Flags.Flags (CliFlags(..))
 import Ideas.Response (Body(..), IdeaResponse)
 import Client (attemptFetch, url)
-import Utils (printWrap, defaultErrorHandler)
+import Utils (defaultErrorHandler)
 
 limit = 100 :: Int
 
@@ -32,19 +33,21 @@ worker cf ideasCh offset = attemptFetch (httpMaxAttempts cf) (doFetch cf offset)
 
 doFetch :: CliFlags -> Int -> Int -> IO (Maybe [IdeaResponse])
 doFetch cf offset currentAttempt = handle
-  ((Nothing <$) . (defaultErrorHandler $ "failed to fetch ideas, attempt " ++ show currentAttempt ++ ": ")) -- TODO: strings interpolation
+  ((Nothing <$) . (defaultErrorHandler $ printf "failed to fetch ideas, attempt %d:" currentAttempt))
   (join <$> (timeout (httpTimeout cf) $ runMaybeT $ fetcher cf offset currentAttempt))
 
 -- TODO: dup
 fetcher :: CliFlags -> Int -> Int -> MaybeT IO [IdeaResponse]
 fetcher cf offset currentAttempt = do
-  liftIO $ printWrap ("started fetching ideas, offset " ++ show offset ++ ", attempt ") currentAttempt
+  liftIO $ printf "started fetching ideas, offset %d, attempt %d" offset currentAttempt
   (statusCode, body) <- MaybeT $ get (url cf "/ideas" offset limit) $ responseHandler currentAttempt
-  let statusMsg = "failed to fetch ideas, status code " ++ show statusCode ++ ", offset " ++ show offset ++ ", attempt "
-  when (statusCode /= 200) ((liftIO $ printWrap statusMsg currentAttempt) >> mzero)
-  let bodyMsg = "failed to fetch ideas because body.success = false, offset " ++ show offset ++ ", attempt "
-  when (success body /= True) ((liftIO $ printWrap bodyMsg currentAttempt) >> mzero)
-  liftIO $ printWrap ("finished fetching ideas, offset " ++ show offset ++ ", attempt ") currentAttempt
+  let statusF = "failed to fetch ideas, status code %d, offset %d, attempt %d"
+  let statusMsg = (printf statusF statusCode offset currentAttempt)::String
+  when (statusCode /= 200) ((liftIO $ putStrLn statusMsg) >> mzero)
+  let bodyF = "failed to fetch ideas because body.success = false, offset %d, attempt %d"
+  let bodyMsg = (printf bodyF offset currentAttempt)::String
+  when (success body /= True) ((liftIO $ putStrLn bodyMsg) >> mzero)
+  liftIO $ printf "finished fetching ideas, offset %d, attempt %d" offset currentAttempt
   select null (\_ -> mzero) return (results body)
 
 -- TODO: dup
@@ -54,4 +57,4 @@ responseHandler currentAttempt response inputStream = handle
   (fmap (Just . (,) statusCode) (jsonHandler response inputStream :: IO Body))
   where
     statusCode = getStatusCode response
-    msg = "failed to process ideas response, attempt " ++ show currentAttempt ++ ": "
+    msg = printf "failed to process ideas response, attempt %d:" currentAttempt

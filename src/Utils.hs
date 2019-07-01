@@ -1,6 +1,5 @@
 module Utils
-    ( printWrap
-    , defaultErrorHandler
+    ( defaultErrorHandler
     , parseCustomTime
     , loop
     ) where
@@ -11,11 +10,8 @@ import Control.Exception (SomeException)
 import Data.Time.LocalTime (ZonedTime)
 import Data.Time.Format (defaultTimeLocale, parseTimeM)
 
-printWrap :: Show a => String -> a -> IO ()
-printWrap msg = putStrLn . (msg ++) . show
-
 defaultErrorHandler :: String -> SomeException -> IO ()
-defaultErrorHandler = printWrap
+defaultErrorHandler s e = putStrLn $ s ++ show e
 
 parseCustomTime :: String -> Maybe ZonedTime
 parseCustomTime = parseTimeM False defaultTimeLocale "%d.%m.%Y"

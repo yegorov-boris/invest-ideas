@@ -3,6 +3,7 @@ module Client
     , url
     ) where
 
+import Text.Printf (printf)
 import Control.Conditional (if')
 import Data.ByteString.UTF8 (ByteString, fromString)
 import Data.List (intercalate)
@@ -20,15 +21,11 @@ doAttemptFetch maxAttempts currentAttempt fetcher =
       (return Nothing)
       (doAttemptFetch maxAttempts (succ currentAttempt) fetcher)
 
--- TODO: interpolate strings
 url :: CliFlags -> String -> Int -> Int -> ByteString
-url cf path offset limit = fromString $ intercalate "" [
-    ideasURL cf
-  , path
-  , "?api_key="
-  , token cf
-  , "&offset="
-  , show offset
-  , "&limit="
-  , show limit
-  ]
+url cf path offset limit = fromString $ printf
+  "%s%s?api_key=%s&offset=%d&limit=%d"
+  (ideasURL cf)
+  path
+  (token cf)
+  offset
+  limit
