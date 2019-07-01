@@ -7,17 +7,13 @@ import qualified Data.HashSet as HashSet
 import qualified Data.Text as T
 import Control.Conditional (select)
 import Control.Monad (forever, filterM, (>=>), mzero)
-import Control.Concurrent (
-    forkIO
-  , MVar, newMVar, readMVar, swapMVar
-  , threadDelay
-  , Chan, newChan, readChan, writeChan
-  )
+import Control.Concurrent (forkIO, MVar, newMVar, readMVar, swapMVar, Chan, newChan, readChan, writeChan)
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.Time.LocalTime (zonedTimeToUTC)
 import Ideas.Response (IdeaResponse(..))
 import Stocks.Storage (stocksCache)
 import Flags.Flags (CliFlags(..))
+import Utils (loop)
 
 -- TODO: move to the proper place and import in other places
 type Cache = HashSet.Set T.Text
@@ -29,7 +25,7 @@ start cf ideasCh = stocksCache cf >>= maybe
   (return Nothing)
   (\stocks -> do
     m <- newMVar stocks
-    forkIO $ forever $ updateCache cf m
+    forkIO $ loop (stocksPollingInterval cf) (updateCache cf m)
     validIdeasCh <- newChan
     forkIO $ forever $ validateBatch m ideasCh validIdeasCh
     return $ Just validIdeasCh
@@ -37,7 +33,6 @@ start cf ideasCh = stocksCache cf >>= maybe
 
 updateCache :: CliFlags -> MVar Cache -> IO ()
 updateCache cf m = do
-  threadDelay $ stocksPollingInterval cf
   stocksCache cf >>= maybe
     mzero
     (swapMVar m >=> \_ -> putStrLn "stocks cache updated")

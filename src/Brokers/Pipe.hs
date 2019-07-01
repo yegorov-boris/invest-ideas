@@ -2,13 +2,13 @@ module Brokers.Pipe
     ( runFetcher
     ) where
 
-import Control.Monad (forever, mzero)
-import Control.Concurrent (threadDelay)
+import Control.Monad (mzero)
 import Flags.Flags (CliFlags(..))
 import Brokers.Client (fetch)
 import Brokers.Storage (batchUpsert)
+import Utils (loop)
 
 runFetcher :: CliFlags -> IO ()
-runFetcher cf = forever $ do
-  fetch cf >>= maybe mzero (batchUpsert cf)
-  threadDelay $ ideasPollingInterval cf -- TODO: move `forever` with `threadDelay` to a separate helper
+runFetcher cf = loop
+  (ideasPollingInterval cf)
+  (fetch cf >>= maybe mzero (batchUpsert cf))

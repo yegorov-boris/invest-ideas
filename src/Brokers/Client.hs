@@ -3,15 +3,15 @@ module Brokers.Client
     ) where
 
 import Network.Http.Client (Response, get, getStatusCode, jsonHandler)
-import Data.ByteString.UTF8 (ByteString, fromString)
+import Data.ByteString.UTF8 (ByteString)
 import Control.Exception (handle)
-import Control.Conditional (if')
+import Control.Conditional (select)
 import Control.Concurrent (threadDelay)
-import Control.Error (ExceptT(..), hoistEither, runExceptT)
-import Control.Monad ((>=>))
+import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
+import Control.Monad ((>=>), mzero, when)
 import Control.Monad.IO.Class (liftIO)
 import System.IO.Streams (InputStream)
-import Control.Concurrent.Async (race)
+import System.Timeout (timeout)
 import Flags.Flags (CliFlags(..))
 import Utils (printWrap, defaultErrorHandler)
 import Brokers.Response (Body(..), BrokerResponse)
@@ -20,43 +20,32 @@ import Client (url)
 fetch :: CliFlags -> IO (Maybe [BrokerResponse])
 fetch cf = doFetch cf 1
 
+-- TODO: find a lib for retry
 doFetch :: CliFlags -> Int -> IO (Maybe [BrokerResponse])
-doFetch cf currentAttempt =
-  handle
-    ((Nothing <$) . (defaultErrorHandler $ "failed to fetch brokers, attempt " ++ show currentAttempt ++ ": "))
-    (
-      (runExceptT $ attemptFetch cf 1) >>= either
-        (putStrLn >=> (\_ -> if currentAttempt < maxAttempts then tryAgain else return Nothing))
-        (return . Just)
-    )
+doFetch cf currentAttempt = handle
+  (onFailure >=> \_ -> nextAction)
+  ((runMaybeT $ fetcher cf 1) >>= maybe nextAction (return . Just))
   where
     tryAgain = doFetch cf $ succ currentAttempt
+    nextAction = if currentAttempt < maxAttempts then tryAgain else return Nothing
     maxAttempts = httpMaxAttempts cf
+    onFailure = defaultErrorHandler $ "failed to fetch brokers, attempt " ++ show currentAttempt ++ ": "
 
-attemptFetch :: CliFlags -> Int -> ExceptT String IO [BrokerResponse]
-attemptFetch cf currentAttempt = do
-  result <- ExceptT $ race
-    (
-      threadDelay (httpTimeout cf)
-      >> return ("failed to fetch brokers: timed out, attempt " ++ show currentAttempt)
-    )
-    (get (url cf "/brokers" 0 100) $ responseHandler currentAttempt)
-  (statusCode, body) <- hoistEither result
+fetcher :: CliFlags -> Int -> MaybeT IO [BrokerResponse]
+fetcher cf currentAttempt = do
   liftIO $ printWrap "started fetching brokers, attempt " currentAttempt
-  hoistEither $ if'
-    (statusCode == 200)
-    (Right ())
-    (Left $ "failed to fetch brokers, attempt " ++ show currentAttempt ++ ": status code " ++ show statusCode)
-  brokers <- hoistEither $ if'
-    (success body == True)
-    (Right $ results body)
-    (Left $ "body.success is false, attempt " ++ show currentAttempt)
+  (statusCode, body) <- MaybeT $ get (url cf "/brokers" 0 100) $ responseHandler currentAttempt
+  let statusMsg = "failed to fetch brokers, status code " ++ show statusCode ++ ", attempt "
+  when (statusCode /= 200) ((liftIO $ printWrap statusMsg currentAttempt) >> mzero)
+  let bodyMsg = "failed to fetch brokers because body.success = false, attempt "
+  when (success body /= True) ((liftIO $ printWrap bodyMsg currentAttempt) >> mzero)
   liftIO $ printWrap "finished fetching brokers, attempt " currentAttempt
-  return brokers
+  select null (\_ -> mzero) return (results body)
 
-responseHandler :: Int -> Response -> InputStream ByteString -> IO (Either String (Int, Body))
+responseHandler :: Int -> Response -> InputStream ByteString -> IO (Maybe (Int, Body))
 responseHandler currentAttempt response inputStream = handle
-  ((Left "" <$) . (defaultErrorHandler $ "failed to process brokers response, attempt " ++ show currentAttempt ++ ": "))
-  (fmap (Right . (,) statusCode) (jsonHandler response inputStream :: IO Body))
+  ((Nothing <$) . (defaultErrorHandler msg))
+  (fmap (Just . (,) statusCode) (jsonHandler response inputStream :: IO Body))
   where
     statusCode = getStatusCode response
+    msg = "failed to process brokers response, attempt " ++ show currentAttempt ++ ": "
