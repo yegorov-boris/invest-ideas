@@ -35,27 +35,30 @@ data Context a = Context {
 attemptFetch :: Body b => ReaderT (Context b) IO (Maybe String)
 attemptFetch = do
   maxAttempts <- asks $ httpMaxAttempts . flags
+  u <- asks url
+  liftIO $ printf "started fetching %s\n" u
   retrying
     (limitRetries $ maxAttempts - 1)
     (const $ return . isNothing)
-    (const $ mapReaderT runExceptT (catch fetcher onErr) >>= either
-      (liftIO . putStrLn >=> (const $ return Nothing))
-      (return . Just)
+    (\rs -> do
+      let i = rsIterNumber rs
+      result <- mapReaderT runExceptT (catch fetcher onErr)
+      liftIO $ either
+        (printf "failed to fetch %s, attempt %d: %s\n" u i)
+        (const $ printf "finished fetching %s, attempt %d\n" u i)
+        result
+      return $ either (const Nothing) Just result
     )
 
 type Fetcher a = ReaderT (Context a) (ExceptT String IO) String
 
 fetcher :: Body b => Fetcher b
 fetcher = do
-  liftIO $ putStrLn "fetcher"
---  error "foo"
-  return "ok"
+  error "foo"
+--  return "ok"
 
 onErr :: Body b => SomeException -> Fetcher b -- TODO: pattern-match the exception
 onErr = lift . throwE . displayException
-
-
---printf "failed to fetch %s, attempt %d:" url currentAttempt
 
 --  liftIO $ printf "started fetching %s, offset %d, attempt %d" name offset currentAttempt
 --  (statusCode, body) <- MaybeT $ timeout (httpTimeout cf) $ get url $ responseHandler handler
