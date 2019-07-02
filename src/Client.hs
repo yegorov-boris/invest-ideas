@@ -6,24 +6,20 @@ module Client
 
 import Data.Maybe (isNothing)
 import Control.Monad.Catch (catch)
-import Control.Monad.Trans.RWS.Lazy (RWST, runRWST, liftCatch)
 import Control.Monad.Trans.Reader (ReaderT, asks, mapReaderT)
-import Data.Either (isLeft)
 import Control.Retry (limitRetries, retrying, rsIterNumber)
 import Text.Printf (printf)
-import Network.Http.Client (Response, get, getStatusCode, jsonHandler)
-import Control.Conditional (if', select)
+import Network.Http.Client (Response, get, getStatusCode)
+import Control.Conditional (if')
 import Data.ByteString.UTF8 (ByteString, fromString)
 import System.IO.Streams (InputStream)
-import Control.Monad (mzero, (>=>), when)
+import Control.Monad (when)
 import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import Control.Exception (SomeException, displayException)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
-import Control.Exception (handle)
 import System.Timeout (timeout)
 import Flags.Flags (CliFlags(..))
-import Utils (defaultErrorHandler)
 import Response (Body(..), Handler)
 
 data Context a = Context {
@@ -32,7 +28,7 @@ data Context a = Context {
   , httpHandler :: Handler a
   }
 
-attemptFetch :: Body b => ReaderT (Context b) IO (Maybe String)
+attemptFetch :: Body b => ReaderT (Context b) IO (Maybe b)
 attemptFetch = do
   maxAttempts <- asks $ httpMaxAttempts . flags
   u <- asks url
@@ -50,30 +46,21 @@ attemptFetch = do
       return $ either (const Nothing) Just result
     )
 
-type Fetcher a = ReaderT (Context a) (ExceptT String IO) String
+type Fetcher a = ReaderT (Context a) (ExceptT String IO) b
 
 fetcher :: Body b => Fetcher b
 fetcher = do
-  error "foo"
---  return "ok"
+  t <- asks $ httpTimeout . flags
+  u <- asks url
+  handler <- asks httpHandler
+  (statusCode, body) <- (liftIO $ timeout t $ get (fromString u) handler) >>= maybe
+    (throwE "canceled by timeout")
+    return
+  when (statusCode /= 200) (throwE $ printf "status code %d" statusCode)
+  if' (success body == True) (return body) (throwE "body.success = false")
 
 onErr :: Body b => SomeException -> Fetcher b -- TODO: pattern-match the exception
 onErr = lift . throwE . displayException
-
---  liftIO $ printf "started fetching %s, offset %d, attempt %d" name offset currentAttempt
---  (statusCode, body) <- MaybeT $ timeout (httpTimeout cf) $ get url $ responseHandler handler
---  let statusF = "failed to fetch %s, status code %d, offset %d, attempt %d"
---  let statusMsg = (printf statusF name statusCode offset currentAttempt)::String
---  when (statusCode /= 200) ((liftIO $ putStrLn statusMsg) >> mzero)
---  let bodyF = "failed to fetch %s because body.success = false, offset %d, attempt %d"
---  let bodyMsg = (printf bodyF name offset currentAttempt)::String
---  let (success, results) = if'
---    (name == "ideas")
---    (I.success body, I.results body)
---    (B.success body, B.results body)
---  when (success body /= True) ((liftIO $ putStrLn bodyMsg) >> mzero)
---  liftIO $ printf "finished fetching %s, offset %d, attempt %d" name offset currentAttempt
---  select null (\_ -> mzero) return (results body)
 
 responseHandler :: Body b => (Handler b) -> Response -> InputStream ByteString -> IO (Int, b)
 responseHandler handler response inputStream = do
