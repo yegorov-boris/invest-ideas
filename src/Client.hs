@@ -17,7 +17,7 @@ import Data.ByteString.UTF8 (ByteString, fromString)
 import System.IO.Streams (InputStream)
 import Control.Monad (mzero, (>=>), when)
 import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
-import Control.Exception (SomeException)
+import Control.Exception (SomeException, displayException)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Control.Exception (handle)
@@ -27,8 +27,8 @@ import Utils (defaultErrorHandler)
 import Response (Body(..), Handler)
 
 data Context a = Context {
-    flags :: CliFlags
-  , url   :: String
+    flags       :: CliFlags
+  , url         :: String
   , httpHandler :: Handler a
   }
 
@@ -38,38 +38,24 @@ attemptFetch = do
   retrying
     (limitRetries $ maxAttempts - 1)
     (const $ return . isNothing)
-    (const $ mapReaderT runExceptT fetcher >>= onResult)
-  where
-    onResult = either
+    (const $ mapReaderT runExceptT (catch fetcher onErr) >>= either
       (liftIO . putStrLn >=> (const $ return Nothing))
       (return . Just)
+    )
 
+type Fetcher a = ReaderT (Context a) (ExceptT String IO) String
 
-
-
-
-
---doAttemptFetch cf name offset 1
-
---doAttemptFetch :: Body b => CliFlags -> String -> (Handler b) -> Int -> IO (Maybe b)
-
-
---doAttemptFetch cf url handler currentAttempt = handle
---  ((Nothing <$) . onFailure)
---  (runMaybeT $ fetcher cf url handler currentAttempt)
---  where
---  TODO: pattern-match the exception
---printf "failed to process %s response, attempt %d:" url currentAttempt
---    onFailure = defaultErrorHandler $ printf "failed to fetch %s, attempt %d:" url currentAttempt
-
-fetcher :: Body b => ReaderT (Context b) (ExceptT String IO) String
+fetcher :: Body b => Fetcher b
 fetcher = do
   liftIO $ putStrLn "fetcher"
---  lift $ throwE "42"
-  return "42"
+--  error "foo"
+  return "ok"
+
+onErr :: Body b => SomeException -> Fetcher b -- TODO: pattern-match the exception
+onErr = lift . throwE . displayException
 
 
-
+--printf "failed to fetch %s, attempt %d:" url currentAttempt
 
 --  liftIO $ printf "started fetching %s, offset %d, attempt %d" name offset currentAttempt
 --  (statusCode, body) <- MaybeT $ timeout (httpTimeout cf) $ get url $ responseHandler handler
@@ -86,7 +72,7 @@ fetcher = do
 --  liftIO $ printf "finished fetching %s, offset %d, attempt %d" name offset currentAttempt
 --  select null (\_ -> mzero) return (results body)
 
-responseHandler :: Body b => (Handler b) -> Response -> InputStream ByteString -> IO (Int, b) -- TODO: Cont
+responseHandler :: Body b => (Handler b) -> Response -> InputStream ByteString -> IO (Int, b)
 responseHandler handler response inputStream = do
   body <- handler response inputStream
   return (getStatusCode response, body)
