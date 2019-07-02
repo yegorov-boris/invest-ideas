@@ -16,6 +16,7 @@ import Data.Time.LocalTime (ZonedTime)
 import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
 import Control.Monad (mzero)
 import Utils (parseCustomTime)
+import qualified Response as R
 
 data Body = Body {
     success :: Bool
@@ -23,6 +24,9 @@ data Body = Body {
   } deriving (Generic, Show)
 
 instance FromJSON Body
+
+instance R.Body Body
+  where success = success
 
 data IdeaResponse = IdeaResponse {
     externalID       :: Int

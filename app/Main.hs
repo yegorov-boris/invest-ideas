@@ -10,4 +10,9 @@ import qualified Ideas.Pipe as IdeasPipe
 main :: IO ()
 main = runExceptT parseCliFlags >>= either
   (printf "failed to parse CLI flags: %s")
-  (\cf -> mapConcurrently_ ($ cf) [BrokersPipe.runFetcher, IdeasPipe.runFetcher])
+  (\cf -> mapConcurrently_ ($ cf) pipes)
+  where
+    pipes = [
+        BrokersPipe.runFetcher
+--      , IdeasPipe.runFetcher
+      ]

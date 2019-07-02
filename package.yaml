@@ -37,6 +37,8 @@ dependencies:
 - async
 - hashmap
 - transformers
+- retry
+- exceptions
 
 library:
   source-dirs: src

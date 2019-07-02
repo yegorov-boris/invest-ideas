@@ -13,6 +13,7 @@ import Data.Foldable (asum)
 import Text.Read (readMaybe)
 import Data.Aeson (FromJSON(..), withObject, (.:))
 import qualified Data.Text as T
+import qualified Response as R
 
 data Body = Body {
     success :: Bool
@@ -20,6 +21,9 @@ data Body = Body {
   } deriving (Generic, Show)
 
 instance FromJSON Body
+
+instance R.Body Body
+  where success = success
 
 data BrokerResponse = BrokerResponse {
     externalID                :: Int
