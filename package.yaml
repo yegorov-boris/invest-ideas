@@ -28,7 +28,6 @@ dependencies:
 - utf8-string
 - bytestring
 - cond
-- errors
 - aeson
 - io-streams
 - text

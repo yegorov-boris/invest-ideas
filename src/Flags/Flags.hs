@@ -8,7 +8,7 @@ import Data.Semigroup ((<>))
 import Text.Read (readEither)
 import qualified Data.List.Safe as L
 import Control.Applicative (liftA2)
-import Control.Error (ExceptT, hoistEither) -- TODO: Control.Monad.Trans.Except.ExceptT
+import Control.Monad.Trans.Except (ExceptT, throwE)
 import Control.Monad.IO.Class (liftIO)
 import Data.Word (Word16)
 import Data.IP (IP)
@@ -78,10 +78,10 @@ cliFlagsRaw = R.CliFlags
 parseCliFlags :: ExceptT String IO CliFlags
 parseCliFlags = do
   raw <- liftIO $ execParser opts
-  ideasInterval <- hoistEither $ parsePollingInterval "ideas-polling-interval" $ R.ideasPollingInterval raw
-  stocksInterval <- hoistEither $ parsePollingInterval "stocks-polling-interval" $ R.stocksPollingInterval raw
-  timeout <- hoistEither $ validateHttpTimeout $ R.httpTimeout raw
-  maxAttempts <- hoistEither $ validateHttpMaxAttempts $ R.httpMaxAttempts raw
+  ideasInterval <- fromRaw (parsePollingInterval "ideas-polling-interval" . R.ideasPollingInterval) raw
+  stocksInterval <- fromRaw (parsePollingInterval "stocks-polling-interval" . R.stocksPollingInterval) raw
+  timeout <- fromRaw (validateHttpTimeout . R.httpTimeout) raw
+  maxAttempts <- fromRaw (validateHttpMaxAttempts . R.httpMaxAttempts) raw
   return CliFlags {
       ideasURL              = R.ideasURL raw
     , token                 = R.token raw
@@ -101,6 +101,7 @@ parseCliFlags = do
       <> progDesc "invest-ideas fetcher"
       <> header "hello" )
     second = 1000 * 1000
+    fromRaw validator raw = either throwE return $ validator raw
 
 parsePollingInterval :: String -> String -> Either String Int
 parsePollingInterval name s =

@@ -1,7 +1,7 @@
 module Main where
 
 import Text.Printf (printf)
-import Control.Error (runExceptT)
+import Control.Monad.Trans.Except (runExceptT)
 import Control.Concurrent.Async (mapConcurrently_)
 import Flags.Flags (parseCliFlags)
 import qualified Brokers.Pipe as BrokersPipe
