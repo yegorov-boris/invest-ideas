@@ -16,7 +16,7 @@ import Flags.Flags (CliFlags)
 import Storage (getConnectionInfo)
 import Utils (defaultErrorHandler)
 
-stocksCache :: CliFlags -> IO (Maybe (HashSet.Set T.Text))
+stocksCache :: CliFlags -> IO (Maybe (HashSet.Set T.Text)) -- TODO: empty instead of Maybe
 stocksCache cf = do
   handle ((Nothing <$) . defaultErrorHandler "failed to find stocks: ") (doStocksCache cf)
 
