@@ -13,10 +13,11 @@ import Utils (loop)
 
 runFetcher :: CliFlags -> IO ()
 runFetcher cf = do
-  ideasCh <- newChan
-  Validator.start cf ideasCh >>= maybe
-    mempty
-    (\validIdeasCh -> do
-      forkIO $ forever $ readChan validIdeasCh >>= batchUpsert cf
-      loop (ideasPollingInterval cf) (fetch cf ideasCh)
-    )
+  return ()
+--  ideasCh <- newChan
+--  Validator.start cf ideasCh >>= maybe
+--    mempty
+--    (\validIdeasCh -> do
+--      forkIO $ forever $ readChan validIdeasCh >>= batchUpsert cf
+--      loop (ideasPollingInterval cf) (fetch cf ideasCh)
+--    )

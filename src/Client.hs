@@ -35,7 +35,7 @@ attemptFetch i = do
   u <- asks url
   (mapReaderT runExceptT $ catch fetcher onErr) >>= liftIO . either
     (printf "failed to fetch %s, attempt %d: %s\n" u i >=> const empty)
-    (\result -> printf "finished fetching %s, attempt %d\n" u i >> return result)
+    (\result -> printf "finished fetching %s, attempt %d\n" u i >> return result) -- TODO: is there a logger monad?
 
 type Fetcher a = ReaderT (Context a) (ExceptT String IO) a
 

@@ -12,10 +12,10 @@ import qualified Client as C
 fetch :: CliFlags -> Chan [IdeaResponse] -> IO ()
 fetch cf ideasCh = do
   return ()
---  mapConcurrently_ (worker cf ideasCh) [0, limit]
---  putStrLn "finished fetching ideas"
---
---worker :: CliFlags -> Chan [IdeaResponse] -> Int -> IO ()
---worker cf ideasCh offset = fetch cf "ideas" offset >>= maybe
---  mempty
---  (writeChan ideasCh >=> (\_ -> worker cf ideasCh $ offset + 2 * limit))
+----  mapConcurrently_ (worker cf ideasCh) [0, limit]
+----  putStrLn "finished fetching ideas"
+----
+----worker :: CliFlags -> Chan [IdeaResponse] -> Int -> IO ()
+----worker cf ideasCh offset = fetch cf "ideas" offset >>= maybe
+----  mempty
+----  (writeChan ideasCh >=> (\_ -> worker cf ideasCh $ offset + 2 * limit))

@@ -8,28 +8,27 @@ module Brokers.Storage
     ( batchUpsert
     ) where
 
+import Text.Printf (printf)
+import Control.Monad.Catch (catch)
+import Control.Monad.IO.Class (liftIO)
+import Control.Exception (SomeException, displayException)
+import Control.Monad.Trans.Reader (ReaderT)
 import GHC.Generics (Generic)
 import Data.Maybe (fromMaybe)
-import Control.Exception (handle)
-import Database.PostgreSQL.Simple (ToRow, connect, close, executeMany)
+import Database.PostgreSQL.Simple (ToRow, close, executeMany)
 import Database.PostgreSQL.Simple.SqlQQ (sql)
 import qualified Data.Text as T
 import qualified Brokers.Response as B
 import Flags.Flags (CliFlags(..))
-import Storage (getConnectionInfo)
-import Utils (defaultErrorHandler)
+import Storage (connect)
 
-batchUpsert :: CliFlags -> [B.BrokerResponse] -> IO ()
-batchUpsert cf brokers = do
-  putStrLn "started storing brokers"
-  handle (defaultErrorHandler "failed to store brokers: ") (doBatchUpsert cf brokers)
-
-doBatchUpsert :: CliFlags -> [B.BrokerResponse] -> IO ()
-doBatchUpsert cf brokers = do
-  conn <- connect $ getConnectionInfo cf
-  executeMany conn query $ map toModel brokers
-  close conn
-  putStrLn "finished storing brokers"
+batchUpsert :: [B.BrokerResponse] -> ReaderT CliFlags IO ()
+batchUpsert brokers = do
+  liftIO $ putStrLn "started storing brokers"
+  (flip catch) onErr $ connect >>= \conn -> liftIO $ do
+    executeMany conn query $ map toModel brokers
+    close conn
+    putStrLn "finished storing brokers"
   where
     query = [sql|
         INSERT INTO brokers (
@@ -80,6 +79,10 @@ doBatchUpsert cf brokers = do
         	is_visible_wm=EXCLUDED.is_visible_wm
       |]
 
+onErr :: SomeException -> ReaderT CliFlags IO ()
+onErr = liftIO . printf "failed to store brokers: %s\n" . displayException
+
+-- TODO: are anonymous records allowed?
 data BrokerModel = BrokerModel {
     externalID                      :: String
   , source                          :: String
