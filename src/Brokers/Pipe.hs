@@ -13,7 +13,11 @@ import Utils (loop)
 runFetcher :: CliFlags -> IO ()
 runFetcher cf = loop (ideasPollingInterval cf) $ do
   let brokersHandler = \r i -> jsonHandler r i :: IO Body
-  let ctx = Context {flags = cf, url = "foo", httpHandler = brokersHandler}
+  let ctx = Context {
+      flags = cf
+    , url = "foo"
+    , httpHandler = brokersHandler
+    }
   brokers <- runReaderT attemptFetch ctx
   putStrLn $ show brokers
 --    liftIO $ putStrLn "finished fetching"

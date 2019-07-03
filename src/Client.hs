@@ -4,7 +4,7 @@ module Client
     , makeURL
     ) where
 
-import Data.Maybe (isNothing)
+import Data.Maybe (isNothing, fromJust)
 import Control.Monad.Catch (catch)
 import Control.Monad.Trans.Reader (ReaderT, asks, mapReaderT)
 import Control.Retry (limitRetries, retrying, rsIterNumber)
@@ -46,30 +46,29 @@ attemptFetch = do
       return $ either (const Nothing) Just result
     )
 
-type Fetcher a = ReaderT (Context a) (ExceptT String IO) b
+type Fetcher a = ReaderT (Context a) (ExceptT String IO) a
 
 fetcher :: Body b => Fetcher b
 fetcher = do
   t <- asks $ httpTimeout . flags
   u <- asks url
   handler <- asks httpHandler
-  (statusCode, body) <- (liftIO $ timeout t $ get (fromString u) handler) >>= maybe
-    (throwE "canceled by timeout")
-    return
-  when (statusCode /= 200) (throwE $ printf "status code %d" statusCode)
-  if' (success body == True) (return body) (throwE "body.success = false")
+  result <- (liftIO $ timeout t $ get
+      (fromString u)
+      (\response inputStream -> handler response inputStream >>= return . (,) response)
+    )
+  when (isNothing result) (lift $ throwE "canceled by timeout")
+  (response, body) <- return $ fromJust result
+  let statusCode = getStatusCode response
+  when (statusCode /= 200) (lift $ throwE $ printf "status code %d" statusCode)
+  if' (success body == True) (return body) (lift $ throwE "body.success = false")
 
 onErr :: Body b => SomeException -> Fetcher b -- TODO: pattern-match the exception
 onErr = lift . throwE . displayException
 
-responseHandler :: Body b => (Handler b) -> Response -> InputStream ByteString -> IO (Int, b)
-responseHandler handler response inputStream = do
-  body <- handler response inputStream
-  return (getStatusCode response, body)
-
 limit = 100 :: Int
 
-makeURL :: CliFlags -> String -> Int -> String
+makeURL :: CliFlags -> String -> Int -> String -- TODO: find a lib to construct URLs
 makeURL cf path offset = printf
   "%s%s?api_key=%s&offset=%d&limit=%d"
   (ideasURL cf)
