@@ -7,7 +7,7 @@ import Control.Concurrent.Async (mapConcurrently_)
 import Control.Concurrent (Chan, writeChan)
 import Flags.Flags (CliFlags)
 import Ideas.Response (IdeaResponse)
-import Client (attemptFetch)
+import qualified Client as C
 
 fetch :: CliFlags -> Chan [IdeaResponse] -> IO ()
 fetch cf ideasCh = do
@@ -16,6 +16,6 @@ fetch cf ideasCh = do
 --  putStrLn "finished fetching ideas"
 --
 --worker :: CliFlags -> Chan [IdeaResponse] -> Int -> IO ()
---worker cf ideasCh offset = attemptFetch cf "ideas" offset >>= maybe
+--worker cf ideasCh offset = fetch cf "ideas" offset >>= maybe
 --  mempty
 --  (writeChan ideasCh >=> (\_ -> worker cf ideasCh $ offset + 2 * limit))
