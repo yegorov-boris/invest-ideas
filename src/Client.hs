@@ -21,32 +21,45 @@ import Control.Monad.Trans.Class (lift)
 import System.Timeout (timeout)
 import Flags.Flags (CliFlags(..))
 import Response (Body(..))
-import Common (Context(..))
+import Common (Context(..), Handler)
 
-fetch :: Body b => ReaderT (Context b) IO b
-fetch = do
+fetch :: Body b => String -> Handler b -> ReaderT (Context a) IO b
+fetch url httpHandler = do
+  logger' <- asks logger
   maxAttempts <- asks $ httpMaxAttempts . flags
-  u <- asks url
-  liftIO $ printf "started fetching %s\n" u
-  asum $ map attemptFetch [1..maxAttempts]
+  liftIO $ L.runLogT' logger' $ L.error $ T.pack $ printf
+    "started fetching %s"
+    url
+  asum $ map (attemptFetch url httpHandler) [1..maxAttempts]
 
-attemptFetch :: Body b => Int -> ReaderT (Context b) IO b
-attemptFetch i = do
-  u <- asks url
-  (mapReaderT runExceptT $ catch fetcher onErr) >>= liftIO . either
-    (printf "failed to fetch %s, attempt %d: %s\n" u i >=> const empty)
-    (\result -> printf "finished fetching %s, attempt %d\n" u i >> return result)
+attemptFetch :: Body b => String -> Handler b -> Int -> ReaderT (Context a) IO b
+attemptFetch url httpHandler i = do
+  logger' <- asks logger
+  let onSuccess = \body -> do
+    L.runLogT' logger' $ L.error $ T.pack $ printf
+      "finished fetching %s, attempt %d\n"
+      url
+      i
+    return body
+  let onFail = \msg -> do
+    L.runLogT' logger' $ L.error $ T.pack $ printf
+      "failed to fetch %s, attempt %d: %s\n"
+      url
+      i
+      msg
+    empty
+  (mapReaderT runExceptT $ catch (fetcher url httpHandler) onErr) >>=
+    liftIO . either onFail onSuccess
 
-type Fetcher a = ReaderT (Context a) (ExceptT String IO) a
 
-fetcher :: Body b => Fetcher b
-fetcher = do
+type Fetcher a b = String -> Handler b -> ReaderT (Context a) (ExceptT String IO) b
+
+fetcher :: Body b => Fetcher a b
+fetcher url httpHandler = do
   t <- asks $ httpTimeout . flags
-  u <- asks url
-  handler <- asks httpHandler
   result <- (liftIO $ timeout t $ get
-      (fromString u)
-      (\response inputStream -> handler response inputStream >>= return . (,) response)
+      (fromString url)
+      (\response inputStream -> httpHandler response inputStream >>= return . (,) response)
     )
   when (isNothing result) (lift $ throwE "canceled by timeout")
   (response, body) <- return $ fromJust result

@@ -8,6 +8,7 @@ module Brokers.Storage
     ( batchUpsert
     ) where
 
+import qualified Control.Monad.Log as L
 import Text.Printf (printf)
 import Control.Monad.Catch (catch)
 import Control.Monad.IO.Class (liftIO)
@@ -21,14 +22,18 @@ import qualified Data.Text as T
 import qualified Brokers.Response as B
 import Flags.Flags (CliFlags(..))
 import Storage (connect)
+import Common (Context)
 
-batchUpsert :: [B.BrokerResponse] -> ReaderT CliFlags IO ()
+batchUpsert :: [B.BrokerResponse] -> ReaderT (Context a) IO ()
 batchUpsert brokers = do
-  liftIO $ putStrLn "started storing brokers"
+  logger' <- asks logger
+  liftIO $ L.runLogT' logger' $ L.info $ T.pack
+    "started storing brokers"
   (flip catch) onErr $ connect >>= \conn -> liftIO $ do
     executeMany conn query $ map toModel brokers
     close conn
-    putStrLn "finished storing brokers"
+    L.runLogT' logger' $ L.info $ T.pack
+      "finished storing brokers"
   where
     query = [sql|
         INSERT INTO brokers (
@@ -79,8 +84,12 @@ batchUpsert brokers = do
         	is_visible_wm=EXCLUDED.is_visible_wm
       |]
 
-onErr :: SomeException -> ReaderT CliFlags IO ()
-onErr = liftIO . printf "failed to store brokers: %s\n" . displayException
+onErr :: SomeException -> ReaderT (Context a) IO ()
+onErr e = do
+  logger' <- asks logger
+  liftIO $ L.runLogT' logger' $ L.error $ T.pack $ printf
+    "failed to store brokers: %s\n"
+    (displayException e)
 
 data BrokerModel = BrokerModel {
     externalID                      :: String

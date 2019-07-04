@@ -8,12 +8,15 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ReaderT, asks)
 import qualified Database.PostgreSQL.Simple as DB
 import Flags.Flags (CliFlags(..))
+import Common (Context(..))
 
-connect :: ReaderT CliFlags IO DB.Connection
+connect :: ReaderT (Context a) IO DB.Connection
 connect = do
-  connectHost <- asks dbHost
-  connectPort <- asks dbPort
-  connectUser <- asks dbUser
-  connectPassword <- asks dbPassword
-  connectDatabase <- asks dbName
+  connectHost     <- askFlags dbHost
+  connectPort     <- askFlags dbPort
+  connectUser     <- askFlags dbUser
+  connectPassword <- askFlags dbPassword
+  connectDatabase <- askFlags dbName
   liftIO $ DB.connect DB.ConnectInfo {..}
+  where
+    askFlags = (asks $) . (. flags)
