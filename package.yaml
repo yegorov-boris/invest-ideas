@@ -39,6 +39,7 @@ dependencies:
 - retry
 - exceptions
 - monad-log
+- HTTP
 
 library:
   source-dirs: src

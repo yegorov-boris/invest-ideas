@@ -1,11 +1,11 @@
 module Client
     ( Context(..)
     , fetch
-    , makeURL
     ) where
 
+import Data.Foldable (asum)
 import Control.Monad ((>=>))
-import Control.Applicative (empty, (<|>))
+import Control.Applicative (empty)
 import Data.Maybe (isNothing, fromJust)
 import Control.Monad.Catch (catch)
 import Control.Monad.Trans.Reader (ReaderT, asks, mapReaderT)
@@ -28,14 +28,14 @@ fetch = do
   maxAttempts <- asks $ httpMaxAttempts . flags
   u <- asks url
   liftIO $ printf "started fetching %s\n" u
-  foldr (<|>) empty $ map attemptFetch [1..maxAttempts]
+  asum $ map attemptFetch [1..maxAttempts]
 
 attemptFetch :: Body b => Int -> ReaderT (Context b) IO b
 attemptFetch i = do
   u <- asks url
   (mapReaderT runExceptT $ catch fetcher onErr) >>= liftIO . either
     (printf "failed to fetch %s, attempt %d: %s\n" u i >=> const empty)
-    (\result -> printf "finished fetching %s, attempt %d\n" u i >> return result) -- TODO: is there a logger monad?
+    (\result -> printf "finished fetching %s, attempt %d\n" u i >> return result) -- TODO: monad-log
 
 type Fetcher a = ReaderT (Context a) (ExceptT String IO) a
 
@@ -56,14 +56,3 @@ fetcher = do
 
 onErr :: Body b => SomeException -> Fetcher b
 onErr = lift . throwE . displayException
-
-limit = 100 :: Int
-
-makeURL :: CliFlags -> String -> Int -> String -- TODO: find a lib to construct URLs
-makeURL cf path offset = printf
-  "%s%s?api_key=%s&offset=%d&limit=%d"
-  (ideasURL cf)
-  path
-  (token cf)
-  offset
-  limit
