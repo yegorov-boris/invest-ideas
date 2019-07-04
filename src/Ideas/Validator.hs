@@ -14,15 +14,14 @@ import Ideas.Response (IdeaResponse(..))
 import Stocks.Storage (stocksCache)
 import Flags.Flags (CliFlags(..))
 import Utils (loop)
+import Common (Cache)
 
----- TODO: move to the proper place and import in other places
-type Cache = HashSet.Set T.Text
-type Finder = IdeaResponse -> Bool
 type IdeasChan = Chan [IdeaResponse]
+type Finder = IdeaResponse -> Bool
 
 start :: CliFlags -> IdeasChan -> IO (Maybe IdeasChan)
 start cf ideasCh = newChan >>= return . Just
---start cf ideasCh = stocksCache cf >>= maybe
+--start cf ideasCh = stocksCache cf >>= if empty
 --  (return Nothing)
 --  (\stocks -> do
 --    m <- newMVar stocks
@@ -34,7 +33,7 @@ start cf ideasCh = newChan >>= return . Just
 --
 --updateCache :: CliFlags -> MVar Cache -> IO ()
 --updateCache cf m = do
---  stocksCache cf >>= maybe
+--  stocksCache cf >>= if empty
 --    mzero
 --    (swapMVar m >=> \_ -> putStrLn "stocks cache updated")
 --

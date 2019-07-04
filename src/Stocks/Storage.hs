@@ -14,15 +14,12 @@ import qualified Data.HashSet as HashSet
 import Flags.Flags (CliFlags)
 import Storage (connect)
 import Utils (defaultErrorHandler)
+import Common (Cache)
 
-stocksCache :: CliFlags -> IO (Maybe (HashSet.Set T.Text)) -- TODO: empty instead of Maybe
+stocksCache :: CliFlags -> IO Cache
 stocksCache cf = do
-  return $ Just HashSet.empty
---  handle ((Nothing <$) . defaultErrorHandler "failed to find stocks: ") (doStocksCache cf)
---
---doStocksCache :: CliFlags -> IO (Maybe (HashSet.Set T.Text))
---doStocksCache cf = do
---  conn <- connect $ getConnectionInfo cf
+  return HashSet.empty
+--  "failed to find stocks: "
 --  tickers <- query_ conn [sql|SELECT ticker FROM stocks|]
 --  close conn
 --  putStrLn "found stocks"
