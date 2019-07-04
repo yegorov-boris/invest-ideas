@@ -14,7 +14,6 @@ import Data.Aeson (FromJSON(..), withObject, (.:), (.:?))
 import qualified Data.Text as T
 import Data.Time.LocalTime (ZonedTime)
 import Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
-import Control.Monad (mzero)
 import Utils (parseCustomTime)
 import qualified Response as R
 
@@ -52,12 +51,17 @@ data IdeaResponse = IdeaResponse {
 
 instance FromJSON IdeaResponse where
   parseJSON = withObject "IdeaResponse" $ \o -> do
+    let toDouble = R.parseCustomField o readMaybe "Double"
+    let toDate = R.parseCustomField o parseCustomTime "DD.MM.YYYY"
     externalID       <- o .: "id"
     brokerExternalID <- o .: "broker_id"
     isOpen           <- o .: "is_open"
     horizon          <- o .: "horizon"
+    dateStart        <- toDate "date_start"
     priceStart       <- o .: "price_start"
     price            <- o .: "price"
+    yield            <- toDouble "yield"
+    targetYield      <- toDouble "target_yield"
     strategy         <- o .: "strategy"
     title            <- o .: "title"
     description      <- o .: "description"
@@ -65,24 +69,12 @@ instance FromJSON IdeaResponse where
     believe          <- o .: "believe"
     notBelieve       <- o .: "not_believe"
     ticker           <- o .: "ticker"
+    expectedDateEnd  <- toDate "expected_date_end"
     tag              <- o .: "tags"
-
---    TODO: dup
-    yield <- o .: "yield" >>=
-      maybe (fail "\"yield\" is not a Double") return . readMaybe
-
-    targetYield <- o .: "target_yield" >>=
-      maybe (fail "\"target_yield\" is not a Double") return . readMaybe
-
-    dateStart <- o .: "date_start" >>=
-      maybe (fail "\"date_start\" is not a DD.MM.YYYY") return . parseCustomTime
 
     dateEnd <- runMaybeT $
       (MaybeT $ o .:? "date_end")
       >>= maybe (fail "\"date_end\" is not a DD.MM.YYYY") return . parseCustomTime
-
-    expectedDateEnd <- o .: "expected_date_end" >>=
-      maybe (fail "\"expected_date_end\" is not a DD.MM.YYYY") return . parseCustomTime
 
     return IdeaResponse{..}
 

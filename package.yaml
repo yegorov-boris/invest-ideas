@@ -38,6 +38,7 @@ dependencies:
 - transformers
 - retry
 - exceptions
+- monad-log
 
 library:
   source-dirs: src

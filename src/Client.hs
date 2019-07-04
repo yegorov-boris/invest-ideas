@@ -54,7 +54,7 @@ fetcher = do
   when (statusCode /= 200) (lift $ throwE $ printf "status code %d" statusCode)
   if' (success body == True) (return body) (lift $ throwE "body.success = false")
 
-onErr :: Body b => SomeException -> Fetcher b -- TODO: pattern-match the exception
+onErr :: Body b => SomeException -> Fetcher b
 onErr = lift . throwE . displayException
 
 limit = 100 :: Int

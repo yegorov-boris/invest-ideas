@@ -82,7 +82,6 @@ batchUpsert brokers = do
 onErr :: SomeException -> ReaderT CliFlags IO ()
 onErr = liftIO . printf "failed to store brokers: %s\n" . displayException
 
--- TODO: are anonymous records allowed?
 data BrokerModel = BrokerModel {
     externalID                      :: String
   , source                          :: String

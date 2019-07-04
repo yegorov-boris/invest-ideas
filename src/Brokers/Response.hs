@@ -45,10 +45,15 @@ data BrokerResponse = BrokerResponse {
 
 instance FromJSON BrokerResponse where
   parseJSON = withObject "BrokerResponse" $ \o -> do
+    let toInt = R.parseCustomField o readMaybe "Int"
+    let toDouble = R.parseCustomField o readMaybe "Double"
     externalID                <- o .: "id"
     name                      <- o .: "name"
     rating                    <- o .: "rating"
+    ideasCount                <- toInt "ideas_count"
+    ideasPositive             <- toInt "ideas_positive"
     description               <- o .: "description"
+    accuracy                  <- asum [o .: "accuracy", toDouble "accuracy"]
     profitableIdeasAvgYield   <- o .: "profitable_ideas_avg_yield"
     totalProfitableIdeas      <- o .: "total_profitable_ideas"
     unprofitableIdeasAvgYield <- o .: "unprofitable_ideas_avg_yield"
@@ -57,17 +62,6 @@ instance FromJSON BrokerResponse where
     newIdeasPerMonth          <- o .: "new_ideas_per_month"
     ideaAvgDaysLong           <- o .: "idea_avg_days_long"
     specializationResume      <- o .: "specialization_resume"
-
-    ideasCount <- o .: "ideas_count" >>=
-      maybe (fail "\"ideas_count\" is not an Int") return . readMaybe
-
-    ideasPositive <- o .: "ideas_positive" >>=
-      maybe (fail "\"ideas_positive\" is not an Int") return . readMaybe
-
-    accuracy <- asum [
-        o .: "accuracy",
-        o .: "accuracy" >>= maybe (fail "\"accuracy\" is not a Double") return . readMaybe
-      ]
 
     return BrokerResponse{..}
 
