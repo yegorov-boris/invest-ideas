@@ -9,6 +9,7 @@ module Brokers.Storage
     ) where
 
 import qualified Control.Monad.Log as L
+import Control.Monad.Log.Label (Label(..), withLabel)
 import Text.Printf (printf)
 import Control.Monad.Catch (catch)
 import Control.Monad.IO.Class (liftIO)
@@ -26,13 +27,17 @@ import Common (Context(..), Pipe)
 batchUpsert :: [B.BrokerResponse] -> Pipe a ()
 batchUpsert brokers = do
   logger' <- asks logger
---  liftIO $ L.runLogT' (withLabel (Label "client") logger') $ L.info $ T.pack
---    "started storing brokers"
+  L.runLogT' logger' $ do
+    withLabel (Label $ T.pack "client") $ do
+      L.info $ T.pack $ printf
+        "started storing brokers"
   (flip catch) onErr $ connect >>= \conn -> liftIO $ do
     executeMany conn query $ map toModel brokers
     close conn
---    L.runLogT' (withLabel (Label "brokers_storage") logger') $ L.info $ T.pack
---      "finished storing brokers"
+    L.runLogT' logger' $ do
+      withLabel (Label $ T.pack "client") $ do
+        L.info $ T.pack $ printf
+          "finished storing brokers"
   where
     query = [sql|
         INSERT INTO brokers (
@@ -85,11 +90,12 @@ batchUpsert brokers = do
 
 onErr :: SomeException -> Pipe a ()
 onErr e = do
-  liftIO $ putStrLn "foo"
---  logger' <- asks logger
---  liftIO $ L.runLogT' (withLabel (Label "brokers_storage") logger') $ L.error $ T.pack $ printf
---    "failed to store brokers: %s\n"
---    (displayException e)
+  logger' <- asks logger
+  L.runLogT' logger' $ do
+    withLabel (Label $ T.pack "client") $ do
+      L.info $ T.pack $ printf
+        "failed to store brokers: %s\n"
+        (displayException e)
 
 data BrokerModel = BrokerModel {
     externalID                      :: String

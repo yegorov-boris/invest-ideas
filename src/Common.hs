@@ -6,18 +6,19 @@ module Common
     ) where
 
 import Control.Monad.Trans.Reader (ReaderT, asks)
-import qualified Control.Monad.Log as L
+import Control.Monad.Log (Logger)
+import Control.Monad.Log.Label (Label)
 import qualified Data.Text as T
 import qualified Data.HashSet as HashSet
 import Flags.Flags (CliFlags(..))
 import Response (Handler)
 
-data Context env = Context {
+data Context = Context {
     flags  :: CliFlags
-  , logger :: L.Logger env
+  , logger :: Logger Label
   }
 
-type Pipe a b = ReaderT (Context a) IO b
+type Pipe a b = ReaderT Context IO b
 
 askFlags :: (CliFlags -> b) -> Pipe a b
 askFlags = (asks $) . (. flags)

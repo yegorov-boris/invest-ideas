@@ -1,6 +1,5 @@
 module Client
-    ( Context(..)
-    , fetch
+    ( fetch
     ) where
 
 import qualified Data.Text as T
@@ -29,34 +28,38 @@ import Common (Context(..), Pipe)
 fetch :: Body b => String -> Handler b -> Pipe a b
 fetch url httpHandler = do
   logger' <- asks logger
---  (withLabel (Label $ T.pack "client") logger')
   maxAttempts <- asks $ httpMaxAttempts . flags
-  liftIO $ L.runLogT' logger' $ L.info $ T.pack $ printf -- TODO: move to Utils
-    "started fetching %s"
-    url
+  L.runLogT' logger' $ do
+    withLabel (Label $ T.pack "client") $ do
+      L.info $ T.pack $ printf
+        "started fetching %s"
+        url
   asum $ map (attemptFetch url httpHandler) [1..maxAttempts]
 
 attemptFetch :: Body b => String -> Handler b -> Int -> Pipe a b
 attemptFetch url httpHandler i = do
   logger' <- asks logger
-  eitherBody <- (mapReaderT runExceptT $ catch (fetcher url httpHandler) onErr)
+  eitherBody <- mapReaderT runExceptT $ catch (fetcher url httpHandler) onErr
   either (onFail logger') (onSuccess logger') eitherBody
+  either (const empty) return eitherBody
   where
-    onSuccess l body = do
---      liftIO $ L.runLogT' (withLabel (Label $ T.pack "client") l) $ L.info $ T.pack $ printf
---        "finished fetching %s, attempt %d\n"
---        url
---        i
-      return body
+    onSuccess l = const $ do
+      L.runLogT' l $ do
+        withLabel (Label $ T.pack "client") $ do
+          L.info $ T.pack $ printf
+            "finished fetching %s, attempt %d\n"
+            url
+            i
     onFail l msg = do
---      liftIO $ L.runLogT' (withLabel (Label $ T.pack "client") l) $ L.error $ T.pack $ printf
---        "failed to fetch %s, attempt %d: %s\n"
---        url
---        i
---        msg
-      empty
+      L.runLogT' l $ do
+        withLabel (Label $ T.pack "client") $ do
+          L.error $ T.pack $ printf
+            "failed to fetch %s, attempt %d: %s\n"
+            url
+            i
+            msg
 
-type Fetcher a b = ReaderT (Context a) (ExceptT String IO) b
+type Fetcher a b = ReaderT Context (ExceptT String IO) b
 
 fetcher :: Body b => String -> Handler b -> Fetcher a b
 fetcher url httpHandler = do
