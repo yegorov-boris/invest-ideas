@@ -1,5 +1,7 @@
 module Main where
 
+import Control.Monad (when)
+import Data.Either (isLeft)
 import Control.Monad.Trans.Reader (runReaderT)
 import Control.Applicative (empty)
 import qualified Data.Text as T
@@ -13,20 +15,17 @@ import qualified Brokers.Pipe as B
 import qualified Ideas.Pipe as I
 import Common (Context(..))
 
+-- TODO: lint
 main :: IO ()
 main = do
-  tid <- myLogThreadId
   logger <- L.makeDefaultLogger
     L.simpleTimeFormat'
     (L.LogStdout 4096)
     L.levelDebug
-    tid
-  cf <- runExceptT parseCliFlags >>= either
-    (\msg -> L.runLogTSafe logger $ L.error $ T.pack $ printf
-      "failed to parse CLI flags: %s" msg) -- (msg::String))
-    return
-  let ctx = Context {flags = cf, logger = logger}
-  mapConcurrently_ (\pipe -> runReaderT pipe ctx) pipes
+    (Label $ T.pack "main")
+  runExceptT parseCliFlags >>= either
+    (\msg -> (L.runLogTSafe logger $ L.critical $ T.pack $ printf "failed to parse CLI flags: %s" msg) >> error "")
+    (\cf -> mapConcurrently_ (\pipe -> runReaderT pipe Context {flags = cf, logger = logger}) pipes)
   where
     pipes = [
         B.pipe

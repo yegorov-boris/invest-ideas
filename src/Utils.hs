@@ -17,5 +17,5 @@ defaultErrorHandler s e = putStrLn $ s ++ show e
 parseCustomTime :: String -> Maybe ZonedTime
 parseCustomTime = parseTimeM False defaultTimeLocale "%d.%m.%Y"
 
-loop :: MonadIO f => f () -> Int -> f ()
-loop action interval = forever $ action >> (liftIO $ threadDelay interval)
+loop :: MonadIO f => Int -> f () -> f ()
+loop interval action = forever $ action >> (liftIO $ threadDelay interval)
