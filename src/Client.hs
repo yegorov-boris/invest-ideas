@@ -24,16 +24,13 @@ import System.Timeout (timeout)
 import Flags.Flags (CliFlags(..))
 import Response (Body(..), Handler)
 import Common (Context(..), Pipe)
+import Utils (logInfo, logError)
 
 fetch :: Body b => String -> Handler b -> Pipe a b
 fetch url httpHandler = do
   logger' <- asks logger
   maxAttempts <- asks $ httpMaxAttempts . flags
-  L.runLogT' logger' $ do
-    withLabel (Label $ T.pack "client") $ do
-      L.info $ T.pack $ printf
-        "started fetching %s"
-        url
+  logInfo "client" logger' $ printf "started fetching %s" url
   asum $ map (attemptFetch url httpHandler) [1..maxAttempts]
 
 attemptFetch :: Body b => String -> Handler b -> Int -> Pipe a b
@@ -44,20 +41,9 @@ attemptFetch url httpHandler i = do
   either (const empty) return eitherBody
   where
     onSuccess l = const $ do
-      L.runLogT' l $ do
-        withLabel (Label $ T.pack "client") $ do
-          L.info $ T.pack $ printf
-            "finished fetching %s, attempt %d\n"
-            url
-            i
+      logInfo "client" l $ printf "finished fetching %s, attempt %d" url i
     onFail l msg = do
-      L.runLogT' l $ do
-        withLabel (Label $ T.pack "client") $ do
-          L.error $ T.pack $ printf
-            "failed to fetch %s, attempt %d: %s\n"
-            url
-            i
-            msg
+      logError "client" l $ printf "failed to fetch %s, attempt %d: %s" url i msg
 
 type Fetcher a b = ReaderT Context (ExceptT String IO) b
 
@@ -76,3 +62,7 @@ fetcher url httpHandler = do
 
 onErr :: Body b => SomeException -> Fetcher a b
 onErr = lift . throwE . displayException
+
+--label = "client"::String
+--logInfo' = logInfo label
+--logError' = logError label

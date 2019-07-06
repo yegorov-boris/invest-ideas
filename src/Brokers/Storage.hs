@@ -23,21 +23,16 @@ import qualified Data.Text as T
 import qualified Brokers.Response as B
 import Storage (connect)
 import Common (Context(..), Pipe)
+import Utils (logInfo, logError)
 
 batchUpsert :: [B.BrokerResponse] -> Pipe a ()
 batchUpsert brokers = do
   logger' <- asks logger
-  L.runLogT' logger' $ do
-    withLabel (Label $ T.pack "client") $ do
-      L.info $ T.pack $ printf
-        "started storing brokers"
+  logInfo "storage" logger' "started storing brokers"
   (flip catch) onErr $ connect >>= \conn -> liftIO $ do
     executeMany conn query $ map toModel brokers
     close conn
-    L.runLogT' logger' $ do
-      withLabel (Label $ T.pack "client") $ do
-        L.info $ T.pack $ printf
-          "finished storing brokers"
+    logInfo "storage" logger' "finished storing brokers"
   where
     query = [sql|
         INSERT INTO brokers (
@@ -91,11 +86,7 @@ batchUpsert brokers = do
 onErr :: SomeException -> Pipe a ()
 onErr e = do
   logger' <- asks logger
-  L.runLogT' logger' $ do
-    withLabel (Label $ T.pack "client") $ do
-      L.info $ T.pack $ printf
-        "failed to store brokers: %s\n"
-        (displayException e)
+  logError "storage" logger' $ printf "failed to store brokers: %s" (displayException e)
 
 data BrokerModel = BrokerModel {
     externalID                      :: String
