@@ -30,7 +30,7 @@ fetch :: Body b => String -> Handler b -> Pipe a b
 fetch url httpHandler = do
   logger' <- asks logger
   maxAttempts <- asks $ httpMaxAttempts . flags
-  logInfo "client" logger' $ printf "started fetching %s" url
+  logInfo' logger' $ printf "started fetching %s" url
   asum $ map (attemptFetch url httpHandler) [1..maxAttempts]
 
 attemptFetch :: Body b => String -> Handler b -> Int -> Pipe a b
@@ -41,9 +41,9 @@ attemptFetch url httpHandler i = do
   either (const empty) return eitherBody
   where
     onSuccess l = const $ do
-      logInfo "client" l $ printf "finished fetching %s, attempt %d" url i
+      logInfo' l $ printf "finished fetching %s, attempt %d" url i
     onFail l msg = do
-      logError "client" l $ printf "failed to fetch %s, attempt %d: %s" url i msg
+      logError' l $ printf "failed to fetch %s, attempt %d: %s" url i msg
 
 type Fetcher a b = ReaderT Context (ExceptT String IO) b
 
@@ -63,6 +63,6 @@ fetcher url httpHandler = do
 onErr :: Body b => SomeException -> Fetcher a b
 onErr = lift . throwE . displayException
 
---label = "client"::String
---logInfo' = logInfo label
---logError' = logError label
+label = "client"::String
+logInfo' = logInfo label
+logError' = logError label

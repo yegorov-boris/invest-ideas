@@ -28,11 +28,11 @@ import Utils (logInfo, logError)
 batchUpsert :: [B.BrokerResponse] -> Pipe a ()
 batchUpsert brokers = do
   logger' <- asks logger
-  logInfo "storage" logger' "started storing brokers"
-  (flip catch) onErr $ connect >>= \conn -> liftIO $ do
-    executeMany conn query $ map toModel brokers
-    close conn
-    logInfo "storage" logger' "finished storing brokers"
+  logInfo' logger' "started storing brokers"
+  (flip catch) onErr $ connect >>= \conn -> do
+    liftIO $ executeMany conn query $ map toModel brokers
+    liftIO $ close conn
+    logInfo' logger' "finished storing brokers"
   where
     query = [sql|
         INSERT INTO brokers (
@@ -86,7 +86,7 @@ batchUpsert brokers = do
 onErr :: SomeException -> Pipe a ()
 onErr e = do
   logger' <- asks logger
-  logError "storage" logger' $ printf "failed to store brokers: %s" (displayException e)
+  logError' logger' $ printf "failed to store brokers: %s" (displayException e)
 
 data BrokerModel = BrokerModel {
     externalID                      :: String
@@ -140,3 +140,7 @@ toModel b = BrokerModel {
   , isVisibleMM                     = True
   , isVisibleWM                     = True
   }
+
+label = "storage"::String
+logInfo' = logInfo label
+logError' = logError label
