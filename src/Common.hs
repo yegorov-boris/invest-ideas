@@ -18,9 +18,9 @@ data Context = Context {
   , logger :: Logger Label
   }
 
-type Pipe a b = ReaderT Context IO b
+type Pipe a = ReaderT Context IO a
 
-askFlags :: (CliFlags -> b) -> Pipe a b
+askFlags :: (CliFlags -> a) -> Pipe a
 askFlags = (asks $) . (. flags)
 
 type Cache = HashSet.Set T.Text

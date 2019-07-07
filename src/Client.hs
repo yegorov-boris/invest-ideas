@@ -2,12 +2,7 @@ module Client
     ( fetch
     ) where
 
-import qualified Data.Text as T
-import qualified Control.Monad.Log as L
-import Control.Monad.Log.Label (Label(..), withLabel)
 import Data.Foldable (asum)
-import Control.Monad ((>=>))
-import Control.Applicative (empty)
 import Data.Maybe (isNothing, fromJust)
 import Control.Monad.Catch (catch)
 import Control.Monad.Trans.Reader (ReaderT, asks, mapReaderT)
@@ -26,19 +21,19 @@ import Response (Body(..), Handler)
 import Common (Context(..), Pipe)
 import Utils (logInfo, logError)
 
-fetch :: Body b => String -> Handler b -> Pipe a b
+fetch :: Body a => String -> Handler a -> Pipe (Maybe a)
 fetch url httpHandler = do
   logger' <- asks logger
   maxAttempts <- asks $ httpMaxAttempts . flags
   logInfo' logger' $ printf "started fetching %s" url
   asum $ map (attemptFetch url httpHandler) [1..maxAttempts]
 
-attemptFetch :: Body b => String -> Handler b -> Int -> Pipe a b
+attemptFetch :: Body a => String -> Handler a -> Int -> Pipe (Maybe a)
 attemptFetch url httpHandler i = do
   logger' <- asks logger
   eitherBody <- mapReaderT runExceptT $ catch (fetcher url httpHandler) onErr
   either (onFail logger') (onSuccess logger') eitherBody
-  either (const empty) return eitherBody
+  either (const $ return Nothing) (return . Just) eitherBody
   where
     onSuccess l = const $ do
       logInfo' l $ printf "finished fetching %s, attempt %d" url i

@@ -1,8 +1,9 @@
 module Ideas.Pipe
-    ( runFetcher
+    ( pipe
     ) where
 
-import Control.Concurrent (forkIO, newChan, readChan)
+import Control.Concurrent.Lifted (fork)
+import Control.Concurrent.Chan.Lifted (newChan, readChan)
 import Control.Monad (forever)
 import Flags.Flags (CliFlags(..))
 import Ideas.Client (fetch)
@@ -10,14 +11,15 @@ import Ideas.Validator as Validator
 import Ideas.Storage (batchUpsert)
 import Ideas.Response (IdeaResponse)
 import Utils (loop)
+import Common (Pipe, askFlags)
 
-runFetcher :: CliFlags -> IO ()
-runFetcher cf = do
-  return ()
---  ideasCh <- newChan
---  Validator.start cf ideasCh >>= maybe
---    mempty
---    (\validIdeasCh -> do
---      forkIO $ forever $ readChan validIdeasCh >>= batchUpsert cf
---      loop (ideasPollingInterval cf) (fetch cf ideasCh)
---    )
+pipe :: Pipe ()
+pipe = do
+  ideasCh <- newChan
+  Validator.start ideasCh >>= maybe
+    (return ())
+    (\validIdeasCh -> do
+      fork $ forever $ readChan validIdeasCh >>= batchUpsert
+      interval <- askFlags ideasPollingInterval
+      loop interval $ fetch ideasCh
+    )

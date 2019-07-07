@@ -8,8 +8,6 @@ module Brokers.Storage
     ( batchUpsert
     ) where
 
-import qualified Control.Monad.Log as L
-import Control.Monad.Log.Label (Label(..), withLabel)
 import Text.Printf (printf)
 import Control.Monad.Catch (catch)
 import Control.Monad.IO.Class (liftIO)
@@ -25,7 +23,7 @@ import Storage (connect)
 import Common (Context(..), Pipe)
 import Utils (logInfo, logError)
 
-batchUpsert :: [B.BrokerResponse] -> Pipe a ()
+batchUpsert :: [B.BrokerResponse] -> Pipe ()
 batchUpsert brokers = do
   logger' <- asks logger
   logInfo' logger' "started storing brokers"
@@ -83,7 +81,7 @@ batchUpsert brokers = do
         	is_visible_wm=EXCLUDED.is_visible_wm
       |]
 
-onErr :: SomeException -> Pipe a ()
+onErr :: SomeException -> Pipe ()
 onErr e = do
   logger' <- asks logger
   logError' logger' $ printf "failed to store brokers: %s" (displayException e)
@@ -141,6 +139,6 @@ toModel b = BrokerModel {
   , isVisibleWM                     = True
   }
 
-label = "storage"::String
+label = "brokers_storage"::String
 logInfo' = logInfo label
 logError' = logError label

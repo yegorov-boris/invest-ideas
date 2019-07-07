@@ -1,9 +1,6 @@
 module Main where
 
-import Control.Monad (when)
-import Data.Either (isLeft)
 import Control.Monad.Trans.Reader (runReaderT)
-import Control.Applicative (empty)
 import qualified Data.Text as T
 import qualified Control.Monad.Log as L
 import Control.Monad.Log.Label (Label(..))
@@ -29,5 +26,5 @@ main = do
   where
     pipes = [
         B.pipe
---      , I.pipe
+      , I.pipe
       ]

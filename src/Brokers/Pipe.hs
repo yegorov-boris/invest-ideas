@@ -10,14 +10,16 @@ import Client (fetch)
 import Brokers.Response (Body(..))
 import Brokers.Storage (batchUpsert)
 import Utils (loop)
-import Common (Context(..), Pipe, askFlags)
+import Common (Pipe, askFlags)
 
-pipe :: Pipe a ()
+pipe :: Pipe ()
 pipe = do
   baseURL <- askFlags ideasURL
   interval <- askFlags ideasPollingInterval
   token' <- askFlags token
   let url' = printf "%s/brokers?%s" baseURL $ urlEncodeVars [("api_key", token')]
-  loop interval (results <$> fetch url' handler >>= batchUpsert)
+  loop interval $ fetch url' handler >>= maybe
+    (return ())
+    (batchUpsert . results)
   where
     handler = (\r i -> jsonHandler r i :: IO Body)

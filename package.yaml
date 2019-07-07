@@ -40,6 +40,8 @@ dependencies:
 - exceptions
 - monad-log
 - HTTP
+- lifted-async
+- lifted-base
 
 library:
   source-dirs: src
