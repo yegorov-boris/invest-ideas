@@ -3,14 +3,14 @@ module Ideas.Validator
     ) where
 
 import Control.Monad.IO.Class (liftIO)
-import Data.Either (isLeft, partitionEithers)
+import Data.Either (partitionEithers)
 import Text.Printf (printf)
 import Control.Monad.Trans.Reader (asks)
 import Data.Maybe (fromJust, isJust)
 import qualified Data.HashSet as HashSet
 import qualified Data.Text as T
 import Control.Conditional (select)
-import Control.Monad (forever, mapM_, (>=>), when)
+import Control.Monad (forever, mapM_)
 import Control.Concurrent.Lifted (fork)
 import Control.Concurrent.MVar.Lifted (MVar, newMVar, readMVar, swapMVar)
 import Control.Concurrent.Chan.Lifted (Chan, newChan, readChan, writeChan)

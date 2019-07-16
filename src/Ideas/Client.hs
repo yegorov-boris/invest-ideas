@@ -27,7 +27,7 @@ worker ideasCh offset = do
   baseURL <- askFlags ideasURL
   interval <- askFlags ideasPollingInterval
   token' <- askFlags token
-  let url' = printf "%s/ideas?%s" baseURL $ urlEncodeVars [ ("api_key", token') -- TODO: dup
+  let url' = printf "%s/ideas?%s" baseURL $ urlEncodeVars [ ("api_key", token')
                                                           , ("offset", show offset)
                                                           , ("limit", show limit)
                                                           ]
@@ -37,7 +37,7 @@ worker ideasCh offset = do
     Just (Body _ [])    -> return ()
     Just (Body _ ideas) -> writeChan ideasCh ideas >> worker ideasCh (offset + 2 * limit)
   where
-    handler = (\r i -> jsonHandler r i :: IO Body) -- TODO: dup
+    handler = (\r i -> jsonHandler r i :: IO Body)
 
 label = "ideas_client"::String
 logInfo' = logInfo label

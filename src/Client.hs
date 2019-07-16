@@ -11,7 +11,8 @@ import Network.Http.Client (get, getStatusCode)
 import Control.Conditional (if')
 import Data.ByteString.UTF8 (fromString)
 import Control.Monad (when)
-import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
+import Control.Monad.Trans.Except (ExceptT, throwE, catchE)
+import Control.Monad.Trans.Maybe (MaybeT, runMaybeT, exceptToMaybeT)
 import Control.Exception (SomeException, displayException)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
@@ -25,24 +26,25 @@ fetch :: Body a => String -> Handler a -> Pipe (Maybe a)
 fetch url httpHandler = do
   logger' <- asks logger
   maxAttempts <- asks $ httpMaxAttempts . flags
-  logInfo' logger' $ printf "started fetching %s" url
-  asum $ map (attemptFetch url httpHandler) [1..maxAttempts]
+  logInfo "client" logger' $ printf "started fetching %s" url
+  mapReaderT runMaybeT $ asum $ map (attemptFetch url httpHandler) [1..maxAttempts]
 
-attemptFetch :: Body a => String -> Handler a -> Int -> Pipe (Maybe a)
+attemptFetch :: Body a => String -> Handler a -> Int -> ReaderT Context (MaybeT IO) a
 attemptFetch url httpHandler i = do
   logger' <- asks logger
-  eitherBody <- mapReaderT runExceptT $ catch (fetcher url httpHandler) onErr
-  either (onFail logger') (onSuccess logger') eitherBody
-  either (const $ return Nothing) (return . Just) eitherBody
+  mapReaderT (exceptToMaybeT . onResult logger') $ catch (fetcher url httpHandler) onErr
   where
-    onSuccess l = const $ do
+    onResult l result = catchE (result >>= onSuccess l) (onFail l)
+    onSuccess l body = do
       logInfo' l $ printf "finished fetching %s, attempt %d" url i
+      return body
     onFail l msg = do
       logError' l $ printf "failed to fetch %s, attempt %d: %s" url i msg
+      throwE msg
 
-type Fetcher a b = ReaderT Context (ExceptT String IO) b
+type Fetcher a = ReaderT Context (ExceptT String IO) a
 
-fetcher :: Body b => String -> Handler b -> Fetcher a b
+fetcher :: Body a => String -> Handler a -> Fetcher a
 fetcher url httpHandler = do
   t <- asks $ httpTimeout . flags
   result <- (liftIO $ timeout t $ get
@@ -55,7 +57,7 @@ fetcher url httpHandler = do
   when (statusCode /= 200) (lift $ throwE $ printf "status code %d" statusCode)
   if' (success body == True) (return body) (lift $ throwE "body.success = false")
 
-onErr :: Body b => SomeException -> Fetcher a b
+onErr :: Body a => SomeException -> Fetcher a
 onErr = lift . throwE . displayException
 
 label = "client"::String

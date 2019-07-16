@@ -36,12 +36,12 @@ dependencies:
 - async
 - hashmap
 - transformers
-- retry
 - exceptions
 - monad-log
 - HTTP
 - lifted-async
 - lifted-base
+- transformers-base
 
 library:
   source-dirs: src
